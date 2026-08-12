@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS doc_history;
+DROP TABLE IF EXISTS documents;

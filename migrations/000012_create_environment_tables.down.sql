@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS env_alerts;
+DROP TABLE IF EXISTS sensor_readings;
+DROP TABLE IF EXISTS gauges;

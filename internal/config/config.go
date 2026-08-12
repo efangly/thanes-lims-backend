@@ -1,0 +1,41 @@
+package config
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
+)
+
+type Config struct {
+	AppEnv      string `env:"APP_ENV" envDefault:"local"`
+	AppPort     string `env:"APP_PORT" envDefault:"8080"`
+	AutoMigrate bool   `env:"AUTO_MIGRATE" envDefault:"false"`
+	LogLevel    string `env:"LOG_LEVEL" envDefault:"info"`
+
+	DatabaseURL string `env:"DATABASE_URL,required"`
+
+	JWTAccessSecret  string        `env:"JWT_ACCESS_SECRET,required"`
+	JWTRefreshSecret string        `env:"JWT_REFRESH_SECRET,required"`
+	JWTAccessTTL     time.Duration `env:"JWT_ACCESS_TTL" envDefault:"15m"`
+	JWTRefreshTTL    time.Duration `env:"JWT_REFRESH_TTL" envDefault:"168h"`
+
+	MinioEndpoint  string `env:"MINIO_ENDPOINT,required"`
+	MinioAccessKey string `env:"MINIO_ACCESS_KEY,required"`
+	MinioSecretKey string `env:"MINIO_SECRET_KEY,required"`
+	MinioBucket    string `env:"MINIO_BUCKET,required"`
+	MinioUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"true"`
+}
+
+// Load reads .env (if present) then binds environment variables onto Config.
+// A missing .env file is not an error - cloud/prod environments set env vars directly.
+func Load() (*Config, error) {
+	_ = godotenv.Load()
+
+	cfg := &Config{}
+	if err := env.Parse(cfg); err != nil {
+		return nil, fmt.Errorf("config: %w", err)
+	}
+	return cfg, nil
+}
