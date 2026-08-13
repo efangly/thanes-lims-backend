@@ -3,7 +3,7 @@ export
 
 MIGRATIONS_DIR=migrations
 
-.PHONY: migrate-up migrate-down migrate-create migrate-force run-api run-seed test build
+.PHONY: migrate-up migrate-down migrate-create migrate-force run-api run-seed test test-integration build
 
 migrate-up:
 	migrate -database "$(DATABASE_URL)" -path $(MIGRATIONS_DIR) up
@@ -25,6 +25,11 @@ run-seed:
 
 test:
 	go test ./...
+
+# Requires a running Docker daemon - spins up disposable Postgres containers
+# via testcontainers-go for each repository test.
+test-integration:
+	go test -tags=integration ./...
 
 build:
 	go build -o bin/api ./cmd/api
