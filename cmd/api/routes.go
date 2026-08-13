@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "github.com/efangly/thanes-lims-backend/docs"
 	httpaudit "github.com/efangly/thanes-lims-backend/internal/adapters/http/audit"
 	httpdocument "github.com/efangly/thanes-lims-backend/internal/adapters/http/document"
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
@@ -36,6 +37,7 @@ import (
 	applicationtestresult "github.com/efangly/thanes-lims-backend/internal/application/testresult"
 	applicationuser "github.com/efangly/thanes-lims-backend/internal/application/user"
 	"github.com/efangly/thanes-lims-backend/internal/config"
+	"github.com/gofiber/contrib/v3/swaggo"
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
@@ -47,6 +49,8 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	v1.Get("/health", func(c fiber.Ctx) error {
 		return response.OK(c, fiber.Map{"status": "ok"})
 	})
+
+	v1.Get("/swagger/*", swaggo.New(swaggo.Config{}))
 
 	tokens := jwt.New(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
@@ -93,11 +97,13 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	httptestresult.RegisterRoutes(v1, testResultHandler, tokens)
 
 	equipmentRepo := postgresequipment.New(gdb)
+	calibrationRepo := postgresequipment.NewCalibrationRepository(gdb)
 	equipmentHandler := httpequipment.NewHandler(
 		applicationequipment.NewCreateEquipmentUseCase(equipmentRepo, idgen),
 		applicationequipment.NewListEquipmentUseCase(equipmentRepo),
 		applicationequipment.NewGetEquipmentUseCase(equipmentRepo),
-		applicationequipment.NewRecordCalibrationUseCase(equipmentRepo),
+		applicationequipment.NewRecordCalibrationUseCase(equipmentRepo, calibrationRepo),
+		applicationequipment.NewListCalibrationEventsUseCase(calibrationRepo),
 	)
 	httpequipment.RegisterRoutes(v1, equipmentHandler, tokens)
 

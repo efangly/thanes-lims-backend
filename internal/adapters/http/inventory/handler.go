@@ -30,6 +30,18 @@ func NewHandler(
 	return &Handler{create: create, list: list, get: get, updateQuantity: updateQuantity, reorder: reorder}
 }
 
+// Create godoc
+//
+//	@Summary		เพิ่มรายการวัสดุคงคลังใหม่
+//	@Tags			inventory
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		CreateItemRequest	true	"ข้อมูลรายการ"
+//	@Success		201		{object}	response.Envelope{data=ItemResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Router			/inventory [post]
 func (h *Handler) Create(c fiber.Ctx) error {
 	var req CreateItemRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -48,6 +60,15 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	return response.Created(c, toResponse(item))
 }
 
+// List godoc
+//
+//	@Summary		รายการวัสดุคงคลังทั้งหมด
+//	@Tags			inventory
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]ItemResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Router			/inventory [get]
 func (h *Handler) List(c fiber.Ctx) error {
 	items, err := h.list.Execute(c.Context())
 	if err != nil {
@@ -60,6 +81,17 @@ func (h *Handler) List(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// Get godoc
+//
+//	@Summary		ดึงข้อมูลรายการวัสดุคงคลังตาม ID
+//	@Tags			inventory
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Item ID"
+//	@Success		200	{object}	response.Envelope{data=ItemResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/inventory/{id} [get]
 func (h *Handler) Get(c fiber.Ctx) error {
 	item, err := h.get.Execute(c.Context(), c.Params("id"))
 	if err != nil {
@@ -68,6 +100,21 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	return response.OK(c, toResponse(item))
 }
 
+// UpdateQuantity godoc
+//
+//	@Summary		ปรับจำนวนคงคลัง
+//	@Description	แจ้งเตือนอัตโนมัติหากจำนวนต่ำกว่า min
+//	@Tags			inventory
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Item ID"
+//	@Param			request	body		UpdateQuantityRequest	true	"จำนวนใหม่"
+//	@Success		200		{object}	response.Envelope{data=ItemResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/inventory/{id}/quantity [patch]
 func (h *Handler) UpdateQuantity(c fiber.Ctx) error {
 	var req UpdateQuantityRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -84,6 +131,21 @@ func (h *Handler) UpdateQuantity(c fiber.Ctx) error {
 	return response.OK(c, toResponse(item))
 }
 
+// Reorder godoc
+//
+//	@Summary		สั่งซื้อเพิ่ม (สร้างใบสั่งซื้อ)
+//	@Description	สร้าง purchase order จากรายการที่ต่ำกว่า min ด้วยตนเอง
+//	@Tags			inventory
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string			true	"Item ID"
+//	@Param			request	body		ReorderRequest	true	"ผู้ขาย"
+//	@Success		201		{object}	response.Envelope
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/inventory/{id}/reorder [post]
 func (h *Handler) Reorder(c fiber.Ctx) error {
 	var req ReorderRequest
 	if err := c.Bind().Body(&req); err != nil {

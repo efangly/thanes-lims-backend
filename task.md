@@ -20,15 +20,15 @@ Phase 1 (Auth/Sample/TestResult) และ Phase 2 (Equipment/Inventory+PO/Docum
 ## Testing
 
 - [x] เพิ่ม integration test ด้วย `testcontainers-go` เริ่มจาก `user`/`sample` repository (หมายเหตุ: dependency ยังไม่ได้ติดตั้งจริงตอนเริ่มงานนี้ ต้อง `go get` เพิ่มเอง — เพิ่ม `testcontainers-go` + `.../modules/postgres` และ `golang-migrate/migrate/v4` เป็น Go library สำหรับรัน migration ใส่ container) รันแยกจาก unit test ด้วย `go test -tags=integration ./...` หรือ `make test-integration` (ดู `internal/adapters/postgres/pgtest/container.go` สำหรับ helper spin-up container + apply migrations, `internal/adapters/postgres/user/repository_integration_test.go`, `internal/adapters/postgres/sample/repository_integration_test.go`) — ยังไม่ได้ขยายไปโมดูลอื่น (equipment/inventory/purchaseorder/document/environment/notification/testresult/audit) เหลือเป็นงานต่อไป
-- [ ] ตั้ง CI pipeline (GitHub Actions หรืออื่นๆ) รัน `go build`, `go vet`, `go test` อัตโนมัติทุก PR
+- [x] ตั้ง CI pipeline (GitHub Actions หรืออื่นๆ) รัน `go build`, `go vet`, `go test` อัตโนมัติทุก PR (`.github/workflows/ci.yml` — รันบน push/PR เข้า `main`; ไม่รวม `test-integration` เพราะต้องใช้ Docker daemon รัน testcontainers)
 
 ## API Documentation
 
-- [ ] เพิ่ม Swagger/OpenAPI docs ผ่าน `swaggo/swag` + `gofiber/swagger` (ถูก defer ไว้ตั้งแต่ grilling session)
+- [x] เพิ่ม Swagger/OpenAPI docs ผ่าน `swaggo/swag` + `gofiber/swagger` (ถูก defer ไว้ตั้งแต่ grilling session) — ใช้ `github.com/gofiber/contrib/v3/swaggo` แทน `gofiber/swagger` เพราะตัวหลัง deprecated แล้วและ maintainer ย้ายไป contrib/v3 (ดู `internal/adapters/http/*/handler.go` สำหรับ `@Summary`/`@Router` annotations ของทุก endpoint, `cmd/api/main.go` สำหรับ general API info + `BearerAuth` security scheme, `cmd/api/routes.go` สำหรับ route `GET /api/v1/swagger/*`) รัน `make swagger` เพื่อ regenerate `docs/` หลังแก้ annotation (ต้อง commit `docs/` เพราะ `cmd/api` import ตรงๆ)
 
 ## Equipment
 
-- [ ] พิจารณาเพิ่ม `calibration_events` history table แยกจาก `equipment` เพื่อเก็บ audit trail การสอบเทียบแต่ละครั้ง (ตอนนี้เก็บแค่ `last_calibrated_at`/`next_calibration_due` ล่าสุดบน row เดียว)
+- [x] พิจารณาเพิ่ม `calibration_events` history table แยกจาก `equipment` เพื่อเก็บ audit trail การสอบเทียบแต่ละครั้ง (ตอนนี้เก็บแค่ `last_calibrated_at`/`next_calibration_due` ล่าสุดบน row เดียว) — เพิ่ม migration `000014_create_calibration_events_table` (`equipment_id` FK, `calibrated_at`, `next_calibration_due`, `performed_by`, `notes`), domain `CalibrationEvent` + port `CalibrationRepository` (append-only, ตาม pattern ของ `coc_steps`/`doc_history`), `RecordCalibrationUseCase` แก้ให้ append event ทุกครั้งที่บันทึกการสอบเทียบ, เพิ่ม `ListCalibrationEventsUseCase` + endpoint `GET /equipment/:id/calibration-events` (ยังไม่มี integration test สำหรับ equipment module — เหลือเป็นงานต่อไปตามหัวข้อ Testing ด้านบน)
 
 ## Inventory / PurchaseOrder
 
@@ -40,5 +40,5 @@ Phase 1 (Auth/Sample/TestResult) และ Phase 2 (Equipment/Inventory+PO/Docum
 
 ## Dev Ops
 
-- [ ] `git commit` งานทั้งหมด (ปัจจุบัน repo มีแต่ untracked files ยังไม่ได้ commit)
+- [x] `git commit` งานทั้งหมด (commit ครบแล้ว, ยังไม่ได้ `git push` ขึ้น origin)
 - [ ] เชื่อมต่อ Postgres + MinIO cloud instance จริงสำหรับ demo (ตอนนี้ verify ผ่าน container ชั่วคราวที่ลบทิ้งแล้วเท่านั้น) แล้วรัน `make migrate-up` + `go run ./cmd/seed` กับของจริง

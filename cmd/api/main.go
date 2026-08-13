@@ -21,6 +21,15 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
+// @title           Thanes LIMS Backend API
+// @version         1.0
+// @description     REST API สำหรับ Thanes LIMS backend (Auth, Sample/Chain-of-Custody, Test Result, Equipment, Inventory/Purchase Order, Document, Environment, Notification, Audit)
+// @BasePath        /api/v1
+//
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                พิมพ์ "Bearer" ตามด้วยเว้นวรรคและ JWT access token เช่น "Bearer eyJhbGciOi..."
 func main() {
 	cfg, err := config.Load()
 	if err != nil {

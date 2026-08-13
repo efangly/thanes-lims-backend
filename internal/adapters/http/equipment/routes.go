@@ -14,4 +14,5 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	eq.Get("/", h.List)
 	eq.Get("/:id", h.Get)
 	eq.Patch("/:id/calibration", h.RecordCalibration)
+	eq.Get("/:id/calibration-events", h.ListCalibrationEvents)
 }

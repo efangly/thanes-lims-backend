@@ -31,6 +31,19 @@ func NewHandler(
 	return &Handler{create: create, list: list, get: get, updateStatus: updateStatus, listCoC: listCoC, appendCoC: appendCoC}
 }
 
+// Create godoc
+//
+//	@Summary		สร้างตัวอย่างใหม่
+//	@Description	สร้าง sample record ใหม่พร้อมเริ่ม chain-of-custody
+//	@Tags			samples
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		CreateSampleRequest	true	"ข้อมูลตัวอย่าง"
+//	@Success		201		{object}	response.Envelope{data=SampleResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Router			/samples [post]
 func (h *Handler) Create(c fiber.Ctx) error {
 	var req CreateSampleRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -52,6 +65,18 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	return response.Created(c, toSampleResponse(s))
 }
 
+// List godoc
+//
+//	@Summary		รายการตัวอย่างทั้งหมด
+//	@Description	รองรับ filter ผ่าน query param `status` และ `type`
+//	@Tags			samples
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			status	query		string	false	"กรองตามสถานะ"
+//	@Param			type	query		string	false	"กรองตามประเภท"
+//	@Success		200		{object}	response.Envelope{data=[]SampleResponse}
+//	@Failure		401		{object}	response.Envelope
+//	@Router			/samples [get]
 func (h *Handler) List(c fiber.Ctx) error {
 	var filter portsample.ListFilter
 	if status := c.Query("status"); status != "" {
@@ -74,6 +99,17 @@ func (h *Handler) List(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// Get godoc
+//
+//	@Summary		ดึงข้อมูลตัวอย่างตาม ID
+//	@Tags			samples
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Sample ID"
+//	@Success		200	{object}	response.Envelope{data=SampleResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/samples/{id} [get]
 func (h *Handler) Get(c fiber.Ctx) error {
 	id := c.Params("id")
 	s, err := h.get.Execute(c.Context(), id)
@@ -83,6 +119,22 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	return response.OK(c, toSampleResponse(s))
 }
 
+// UpdateStatus godoc
+//
+//	@Summary		เปลี่ยนสถานะตัวอย่าง
+//	@Description	เปลี่ยนสถานะ sample และบันทึก chain-of-custody step ให้อัตโนมัติ
+//	@Tags			samples
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Sample ID"
+//	@Param			request	body		UpdateStatusRequest	true	"สถานะใหม่"
+//	@Success		200		{object}	response.Envelope{data=SampleResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		409		{object}	response.Envelope
+//	@Router			/samples/{id}/status [patch]
 func (h *Handler) UpdateStatus(c fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -109,6 +161,17 @@ func (h *Handler) UpdateStatus(c fiber.Ctx) error {
 	return response.OK(c, toSampleResponse(s))
 }
 
+// ListCoC godoc
+//
+//	@Summary		ประวัติ chain-of-custody ของตัวอย่าง
+//	@Tags			samples
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Sample ID"
+//	@Success		200	{object}	response.Envelope{data=[]CoCStepResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/samples/{id}/coc [get]
 func (h *Handler) ListCoC(c fiber.Ctx) error {
 	id := c.Params("id")
 	steps, err := h.listCoC.Execute(c.Context(), id)
@@ -122,6 +185,20 @@ func (h *Handler) ListCoC(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// AppendCoC godoc
+//
+//	@Summary		เพิ่ม chain-of-custody step ด้วยตนเอง
+//	@Tags			samples
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Sample ID"
+//	@Param			request	body		AppendCoCStepRequest	true	"ข้อมูล step"
+//	@Success		201		{object}	response.Envelope{data=CoCStepResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/samples/{id}/coc [post]
 func (h *Handler) AppendCoC(c fiber.Ctx) error {
 	id := c.Params("id")
 

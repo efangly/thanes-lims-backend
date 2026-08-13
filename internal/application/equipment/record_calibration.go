@@ -9,16 +9,19 @@ import (
 )
 
 type RecordCalibrationUseCase struct {
-	equipment portequipment.Repository
+	equipment   portequipment.Repository
+	calibration portequipment.CalibrationRepository
 }
 
-func NewRecordCalibrationUseCase(equipment portequipment.Repository) *RecordCalibrationUseCase {
-	return &RecordCalibrationUseCase{equipment: equipment}
+func NewRecordCalibrationUseCase(equipment portequipment.Repository, calibration portequipment.CalibrationRepository) *RecordCalibrationUseCase {
+	return &RecordCalibrationUseCase{equipment: equipment, calibration: calibration}
 }
 
 type RecordCalibrationInput struct {
 	ID                 string
 	NextCalibrationDue time.Time
+	PerformedBy        string
+	Notes              string
 }
 
 func (uc *RecordCalibrationUseCase) Execute(ctx context.Context, in RecordCalibrationInput) (equipment.Equipment, error) {
@@ -27,8 +30,24 @@ func (uc *RecordCalibrationUseCase) Execute(ctx context.Context, in RecordCalibr
 		return equipment.Equipment{}, err
 	}
 
-	e.LastCalibratedAt = time.Now()
+	calibratedAt := time.Now()
+	e.LastCalibratedAt = calibratedAt
 	e.NextCalibrationDue = in.NextCalibrationDue
 
-	return uc.equipment.Update(ctx, e)
+	e, err = uc.equipment.Update(ctx, e)
+	if err != nil {
+		return equipment.Equipment{}, err
+	}
+
+	if _, err := uc.calibration.Append(ctx, equipment.CalibrationEvent{
+		EquipmentID:        e.ID,
+		CalibratedAt:       calibratedAt,
+		NextCalibrationDue: in.NextCalibrationDue,
+		PerformedBy:        in.PerformedBy,
+		Notes:              in.Notes,
+	}); err != nil {
+		return equipment.Equipment{}, err
+	}
+
+	return e, nil
 }

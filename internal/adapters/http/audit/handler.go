@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/pdf"
+	_ "github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
 	portaudit "github.com/efangly/thanes-lims-backend/internal/ports/audit"
 	"github.com/gofiber/fiber/v3"
@@ -20,6 +21,19 @@ func NewHandler(list *applicationaudit.ListAuditLogsUseCase) *Handler {
 // Export streams a PDF of audit log entries, optionally narrowed to a
 // [from, to] date range via the `from`/`to` query params (RFC3339 or
 // 2006-01-02).
+// Export godoc
+//
+//	@Summary		ส่งออก audit log เป็น PDF
+//	@Description	เฉพาะ admin/qa เท่านั้น รองรับกรองช่วงเวลาด้วย `from`/`to` (RFC3339 หรือ YYYY-MM-DD)
+//	@Tags			audit
+//	@Produce		application/pdf
+//	@Security		BearerAuth
+//	@Param			from	query	string	false	"วันที่เริ่มต้น (RFC3339 หรือ YYYY-MM-DD)"
+//	@Param			to		query	string	false	"วันที่สิ้นสุด (RFC3339 หรือ YYYY-MM-DD)"
+//	@Success		200	{file}		byte
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		403	{object}	response.Envelope
+//	@Router			/audit/export [get]
 func (h *Handler) Export(c fiber.Ctx) error {
 	filter := portaudit.ListFilter{}
 	if from, ok := parseDate(c.Query("from")); ok {

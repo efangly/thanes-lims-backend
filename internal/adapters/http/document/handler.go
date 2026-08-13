@@ -31,6 +31,21 @@ func NewHandler(
 	return &Handler{upload: upload, newVersion: newVersion, setLock: setLock, list: list, get: get, downloadURL: downloadURL, history: history}
 }
 
+// Upload godoc
+//
+//	@Summary		อัปโหลดเอกสารใหม่
+//	@Tags			documents
+//	@Accept			mpfd
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			file			formData	file	true	"ไฟล์เอกสาร"
+//	@Param			name			formData	string	true	"ชื่อเอกสาร"
+//	@Param			type			formData	string	true	"ประเภทเอกสาร"
+//	@Param			access_level	formData	string	true	"ระดับการเข้าถึง"
+//	@Success		201				{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		400				{object}	response.Envelope
+//	@Failure		401				{object}	response.Envelope
+//	@Router			/documents [post]
 func (h *Handler) Upload(c fiber.Ctx) error {
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -63,6 +78,15 @@ func (h *Handler) Upload(c fiber.Ctx) error {
 	return response.Created(c, toResponse(d))
 }
 
+// List godoc
+//
+//	@Summary		รายการเอกสารทั้งหมด
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]DocumentResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Router			/documents [get]
 func (h *Handler) List(c fiber.Ctx) error {
 	docs, err := h.list.Execute(c.Context())
 	if err != nil {
@@ -75,6 +99,17 @@ func (h *Handler) List(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// Get godoc
+//
+//	@Summary		ดึงข้อมูลเอกสารตาม ID
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Document ID"
+//	@Success		200	{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/documents/{id} [get]
 func (h *Handler) Get(c fiber.Ctx) error {
 	d, err := h.get.Execute(c.Context(), c.Params("id"))
 	if err != nil {
@@ -83,6 +118,18 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	return response.OK(c, toResponse(d))
 }
 
+// Download godoc
+//
+//	@Summary		ขอลิงก์ดาวน์โหลดเอกสาร
+//	@Description	คืน pre-signed URL สำหรับดาวน์โหลดไฟล์จาก object storage
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Document ID"
+//	@Success		200	{object}	response.Envelope
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/documents/{id}/download [get]
 func (h *Handler) Download(c fiber.Ctx) error {
 	url, err := h.downloadURL.Execute(c.Context(), c.Params("id"))
 	if err != nil {
@@ -91,6 +138,21 @@ func (h *Handler) Download(c fiber.Ctx) error {
 	return response.OK(c, fiber.Map{"url": url})
 }
 
+// NewVersion godoc
+//
+//	@Summary		อัปโหลดเวอร์ชันใหม่ของเอกสาร
+//	@Tags			documents
+//	@Accept			mpfd
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id			path		string	true	"Document ID"
+//	@Param			file		formData	file	true	"ไฟล์เวอร์ชันใหม่"
+//	@Param			change_note	formData	string	false	"หมายเหตุการเปลี่ยนแปลง"
+//	@Success		201			{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		400			{object}	response.Envelope
+//	@Failure		401			{object}	response.Envelope
+//	@Failure		404			{object}	response.Envelope
+//	@Router			/documents/{id}/versions [post]
 func (h *Handler) NewVersion(c fiber.Ctx) error {
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -119,6 +181,17 @@ func (h *Handler) NewVersion(c fiber.Ctx) error {
 	return response.Created(c, toResponse(d))
 }
 
+// History godoc
+//
+//	@Summary		ประวัติการแก้ไขเอกสาร
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Document ID"
+//	@Success		200	{object}	response.Envelope{data=[]HistoryResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/documents/{id}/history [get]
 func (h *Handler) History(c fiber.Ctx) error {
 	items, err := h.history.Execute(c.Context(), c.Params("id"))
 	if err != nil {
@@ -131,6 +204,21 @@ func (h *Handler) History(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// SetLock godoc
+//
+//	@Summary		ล็อค/ปลดล็อคเอกสาร
+//	@Tags			documents
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string		true	"Document ID"
+//	@Param			request	body		LockRequest	true	"สถานะล็อค"
+//	@Success		200		{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/documents/{id}/lock [patch]
 func (h *Handler) SetLock(c fiber.Ctx) error {
 	var req LockRequest
 	if err := c.Bind().Body(&req); err != nil {

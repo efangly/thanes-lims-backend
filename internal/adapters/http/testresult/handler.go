@@ -34,6 +34,19 @@ func NewHandler(
 	return &Handler{create: create, submit: submit, approve: approve, list: list, get: get, genReport: genReport}
 }
 
+// Create godoc
+//
+//	@Summary		สร้างรายการทดสอบใหม่
+//	@Tags			test-results
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		CreateTestResultRequest	true	"ข้อมูลการทดสอบ"
+//	@Success		201		{object}	response.Envelope{data=TestResultResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/tests [post]
 func (h *Handler) Create(c fiber.Ctx) error {
 	var req CreateTestResultRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -55,6 +68,18 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	return response.Created(c, toResponse(t))
 }
 
+// List godoc
+//
+//	@Summary		รายการผลทดสอบทั้งหมด
+//	@Description	รองรับ filter ผ่าน query param `sample_id` และ `status`
+//	@Tags			test-results
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			sample_id	query		string	false	"กรองตาม Sample ID"
+//	@Param			status		query		string	false	"กรองตามสถานะ"
+//	@Success		200			{object}	response.Envelope{data=[]TestResultResponse}
+//	@Failure		401			{object}	response.Envelope
+//	@Router			/tests [get]
 func (h *Handler) List(c fiber.Ctx) error {
 	var filter porttestresult.ListFilter
 	if sampleID := c.Query("sample_id"); sampleID != "" {
@@ -76,7 +101,17 @@ func (h *Handler) List(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
-// ListBySample serves the nested GET /samples/:id/tests convenience route.
+// ListBySample godoc
+//
+//	@Summary		รายการผลทดสอบของตัวอย่างหนึ่ง
+//	@Description	ListBySample serves the nested GET /samples/:id/tests convenience route.
+//	@Tags			test-results
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Sample ID"
+//	@Success		200	{object}	response.Envelope{data=[]TestResultResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Router			/samples/{id}/tests [get]
 func (h *Handler) ListBySample(c fiber.Ctx) error {
 	sampleID := c.Params("id")
 	results, err := h.list.Execute(c.Context(), porttestresult.ListFilter{SampleID: &sampleID})
@@ -90,6 +125,17 @@ func (h *Handler) ListBySample(c fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+// Get godoc
+//
+//	@Summary		ดึงผลทดสอบตาม ID
+//	@Tags			test-results
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Test Result ID"
+//	@Success		200	{object}	response.Envelope{data=TestResultResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/tests/{id} [get]
 func (h *Handler) Get(c fiber.Ctx) error {
 	t, err := h.get.Execute(c.Context(), c.Params("id"))
 	if err != nil {
@@ -98,6 +144,20 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	return response.OK(c, toResponse(t))
 }
 
+// SubmitResult godoc
+//
+//	@Summary		บันทึกผลการทดสอบ
+//	@Tags			test-results
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Test Result ID"
+//	@Param			request	body		SubmitResultRequest	true	"ผลการทดสอบ"
+//	@Success		200		{object}	response.Envelope{data=TestResultResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/tests/{id}/result [patch]
 func (h *Handler) SubmitResult(c fiber.Ctx) error {
 	var req SubmitResultRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -118,6 +178,18 @@ func (h *Handler) SubmitResult(c fiber.Ctx) error {
 	return response.OK(c, toResponse(t))
 }
 
+// GetReport godoc
+//
+//	@Summary		ดาวน์โหลดรายงานผลทดสอบ (PDF)
+//	@Description	สร้าง PDF ผลการทดสอบ + ข้อมูลตัวอย่าง + chain-of-custody trail
+//	@Tags			test-results
+//	@Produce		application/pdf
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Test Result ID"
+//	@Success		200	{file}	byte
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/tests/{id}/report [get]
 func (h *Handler) GetReport(c fiber.Ctx) error {
 	id := c.Params("id")
 	data, err := h.genReport.Execute(c.Context(), id)
@@ -139,6 +211,20 @@ func (h *Handler) GetReport(c fiber.Ctx) error {
 	return c.Send(body)
 }
 
+// Approve godoc
+//
+//	@Summary		อนุมัติผลทดสอบ
+//	@Description	แจ้งเตือนผู้เกี่ยวข้องเมื่ออนุมัติสำเร็จ
+//	@Tags			test-results
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Test Result ID"
+//	@Success		200	{object}	response.Envelope{data=TestResultResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		403	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Failure		409	{object}	response.Envelope
+//	@Router			/tests/{id}/approve [patch]
 func (h *Handler) Approve(c fiber.Ctx) error {
 	role := fiber.Locals[domainuser.Role](c, middleware.LocalsRole)
 	name := fiber.Locals[string](c, middleware.LocalsName)

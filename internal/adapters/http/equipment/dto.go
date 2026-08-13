@@ -14,6 +14,7 @@ type CreateEquipmentRequest struct {
 
 type RecordCalibrationRequest struct {
 	NextCalibrationDue time.Time `json:"next_calibration_due" validate:"required"`
+	Notes              string    `json:"notes"`
 }
 
 type EquipmentResponse struct {
@@ -38,5 +39,25 @@ func toResponse(e equipment.Equipment) EquipmentResponse {
 		UsageHours:         e.UsageHours,
 		CalibrationPct:     e.CalibrationPct(now),
 		Status:             string(e.DerivedStatus(now)),
+	}
+}
+
+type CalibrationEventResponse struct {
+	ID                 int64     `json:"id"`
+	EquipmentID        string    `json:"equipment_id"`
+	CalibratedAt       time.Time `json:"calibrated_at"`
+	NextCalibrationDue time.Time `json:"next_calibration_due"`
+	PerformedBy        string    `json:"performed_by"`
+	Notes              string    `json:"notes"`
+}
+
+func toCalibrationEventResponse(ev equipment.CalibrationEvent) CalibrationEventResponse {
+	return CalibrationEventResponse{
+		ID:                 ev.ID,
+		EquipmentID:        ev.EquipmentID,
+		CalibratedAt:       ev.CalibratedAt,
+		NextCalibrationDue: ev.NextCalibrationDue,
+		PerformedBy:        ev.PerformedBy,
+		Notes:              ev.Notes,
 	}
 }

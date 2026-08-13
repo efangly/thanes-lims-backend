@@ -1,0 +1,2146 @@
+basePath: /api/v1
+definitions:
+  github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.ErrorBody'
+      meta: {}
+      success:
+        type: boolean
+    type: object
+  github_com_efangly_thanes-lims-backend_internal_adapters_http_response.ErrorBody:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  internal_adapters_http_document.DocumentResponse:
+    properties:
+      access_level:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      issued_at:
+        type: string
+      locked:
+        type: boolean
+      name:
+        type: string
+      type:
+        type: string
+      version:
+        type: string
+    type: object
+  internal_adapters_http_document.HistoryResponse:
+    properties:
+      change:
+        type: string
+      date:
+        type: string
+      version:
+        type: string
+      who:
+        type: string
+    type: object
+  internal_adapters_http_document.LockRequest:
+    properties:
+      locked:
+        type: boolean
+    type: object
+  internal_adapters_http_environment.AlertResponse:
+    properties:
+      id:
+        type: integer
+      level:
+        type: string
+      location:
+        type: string
+      message:
+        type: string
+      resolved_at:
+        type: string
+      title:
+        type: string
+      triggered_at:
+        type: string
+    type: object
+  internal_adapters_http_environment.GaugeResponse:
+    properties:
+      level:
+        type: string
+      location:
+        type: string
+      range_max:
+        type: number
+      range_min:
+        type: number
+      unit:
+        type: string
+      value:
+        type: number
+    type: object
+  internal_adapters_http_environment.ReadingResponse:
+    properties:
+      recorded_at:
+        type: string
+      value:
+        type: number
+    type: object
+  internal_adapters_http_environment.RecordReadingRequest:
+    properties:
+      location:
+        type: string
+      value:
+        type: number
+    required:
+    - location
+    type: object
+  internal_adapters_http_equipment.CalibrationEventResponse:
+    properties:
+      calibrated_at:
+        type: string
+      equipment_id:
+        type: string
+      id:
+        type: integer
+      next_calibration_due:
+        type: string
+      notes:
+        type: string
+      performed_by:
+        type: string
+    type: object
+  internal_adapters_http_equipment.CreateEquipmentRequest:
+    properties:
+      name:
+        type: string
+      next_calibration_due:
+        type: string
+      type_code:
+        type: string
+    required:
+    - name
+    - next_calibration_due
+    - type_code
+    type: object
+  internal_adapters_http_equipment.EquipmentResponse:
+    properties:
+      calibration_pct:
+        type: integer
+      id:
+        type: string
+      last_calibrated_at:
+        type: string
+      name:
+        type: string
+      next_calibration_due:
+        type: string
+      status:
+        type: string
+      type_code:
+        type: string
+      usage_hours:
+        type: integer
+    type: object
+  internal_adapters_http_equipment.RecordCalibrationRequest:
+    properties:
+      next_calibration_due:
+        type: string
+      notes:
+        type: string
+    required:
+    - next_calibration_due
+    type: object
+  internal_adapters_http_inventory.CreateItemRequest:
+    properties:
+      category:
+        type: string
+      max:
+        type: integer
+      min:
+        type: integer
+      name:
+        type: string
+      quantity:
+        type: integer
+      unit:
+        type: string
+    required:
+    - category
+    - name
+    - unit
+    type: object
+  internal_adapters_http_inventory.ItemResponse:
+    properties:
+      category:
+        type: string
+      id:
+        type: string
+      max:
+        type: integer
+      min:
+        type: integer
+      name:
+        type: string
+      pct:
+        type: integer
+      quantity:
+        type: integer
+      status:
+        type: string
+      unit:
+        type: string
+    type: object
+  internal_adapters_http_inventory.ReorderRequest:
+    properties:
+      vendor:
+        type: string
+    required:
+    - vendor
+    type: object
+  internal_adapters_http_inventory.UpdateQuantityRequest:
+    properties:
+      quantity:
+        minimum: 0
+        type: integer
+    type: object
+  internal_adapters_http_notification.NotificationResponse:
+    properties:
+      created_at:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      message:
+        type: string
+      read:
+        type: boolean
+      title:
+        type: string
+      tone:
+        type: string
+    type: object
+  internal_adapters_http_purchaseorder.POResponse:
+    properties:
+      id:
+        type: string
+      item_id:
+        type: string
+      order_date:
+        type: string
+      quantity:
+        type: integer
+      status:
+        type: string
+      vendor:
+        type: string
+    type: object
+  internal_adapters_http_sample.AppendCoCStepRequest:
+    properties:
+      meta:
+        type: string
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  internal_adapters_http_sample.CoCStepResponse:
+    properties:
+      icon:
+        type: string
+      id:
+        type: integer
+      meta:
+        type: string
+      occurred_at:
+        type: string
+      state:
+        type: string
+      title:
+        type: string
+      who:
+        type: string
+    type: object
+  internal_adapters_http_sample.CreateSampleRequest:
+    properties:
+      custodian:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    required:
+    - custodian
+    - location
+    - name
+    - type
+    type: object
+  internal_adapters_http_sample.SampleResponse:
+    properties:
+      custodian:
+        type: string
+      id:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      received_at:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    type: object
+  internal_adapters_http_sample.UpdateStatusRequest:
+    properties:
+      status:
+        type: string
+    required:
+    - status
+    type: object
+  internal_adapters_http_testresult.CreateTestResultRequest:
+    properties:
+      analyst:
+        type: string
+      ref_range:
+        type: string
+      sample_id:
+        type: string
+      test_name:
+        type: string
+    required:
+    - analyst
+    - sample_id
+    - test_name
+    type: object
+  internal_adapters_http_testresult.SubmitResultRequest:
+    properties:
+      flag:
+        enum:
+        - hi
+        - lo
+        - ok
+        type: string
+      result:
+        type: string
+    required:
+    - flag
+    - result
+    type: object
+  internal_adapters_http_testresult.TestResultResponse:
+    properties:
+      analyst:
+        type: string
+      flag:
+        type: string
+      id:
+        type: string
+      ref_range:
+        type: string
+      result:
+        type: string
+      sample_id:
+        type: string
+      status:
+        type: string
+      test_name:
+        type: string
+    type: object
+  internal_adapters_http_user.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    - role
+    type: object
+  internal_adapters_http_user.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_adapters_http_user.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_adapters_http_user.TokenPairResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_adapters_http_user.UpdateUserRequest:
+    properties:
+      name:
+        type: string
+      role:
+        type: string
+    required:
+    - name
+    - role
+    type: object
+  internal_adapters_http_user.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: REST API สำหรับ Thanes LIMS backend (Auth, Sample/Chain-of-Custody,
+    Test Result, Equipment, Inventory/Purchase Order, Document, Environment, Notification,
+    Audit)
+  title: Thanes LIMS Backend API
+  version: "1.0"
+paths:
+  /audit/export:
+    get:
+      description: เฉพาะ admin/qa เท่านั้น รองรับกรองช่วงเวลาด้วย `from`/`to` (RFC3339
+        หรือ YYYY-MM-DD)
+      parameters:
+      - description: วันที่เริ่มต้น (RFC3339 หรือ YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: วันที่สิ้นสุด (RFC3339 หรือ YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ส่งออก audit log เป็น PDF
+      tags:
+      - audit
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: ตรวจสอบอีเมล/รหัสผ่าน แล้วคืน access/refresh token pair
+      parameters:
+      - description: อีเมลและรหัสผ่าน
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.TokenPairResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      summary: เข้าสู่ระบบ
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: เพิกถอน refresh token ที่ระบุ
+      parameters:
+      - description: Refresh token ที่ต้องการเพิกถอน
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      summary: ออกจากระบบ
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: แลก refresh token เก่าเป็น access/refresh token pair ใหม่
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.TokenPairResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      summary: ต่ออายุ token
+      tags:
+      - auth
+  /documents:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการเอกสารทั้งหมด
+      tags:
+      - documents
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ไฟล์เอกสาร
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: ชื่อเอกสาร
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: ประเภทเอกสาร
+        in: formData
+        name: type
+        required: true
+        type: string
+      - description: ระดับการเข้าถึง
+        in: formData
+        name: access_level
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: อัปโหลดเอกสารใหม่
+      tags:
+      - documents
+  /documents/{id}:
+    get:
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลเอกสารตาม ID
+      tags:
+      - documents
+  /documents/{id}/download:
+    get:
+      description: คืน pre-signed URL สำหรับดาวน์โหลดไฟล์จาก object storage
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ขอลิงก์ดาวน์โหลดเอกสาร
+      tags:
+      - documents
+  /documents/{id}/history:
+    get:
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_document.HistoryResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ประวัติการแก้ไขเอกสาร
+      tags:
+      - documents
+  /documents/{id}/lock:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: สถานะล็อค
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_document.LockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ล็อค/ปลดล็อคเอกสาร
+      tags:
+      - documents
+  /documents/{id}/versions:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ไฟล์เวอร์ชันใหม่
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: หมายเหตุการเปลี่ยนแปลง
+        in: formData
+        name: change_note
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: อัปโหลดเวอร์ชันใหม่ของเอกสาร
+      tags:
+      - documents
+  /environment/alerts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_environment.AlertResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการ alert สภาพแวดล้อมทั้งหมด
+      tags:
+      - environment
+  /environment/gauges:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_environment.GaugeResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สถานะเกจวัดสภาพแวดล้อมทั้งหมด
+      tags:
+      - environment
+  /environment/gauges/{loc}/trend:
+    get:
+      parameters:
+      - description: ตำแหน่งเซนเซอร์
+        in: path
+        name: loc
+        required: true
+        type: string
+      - default: 50
+        description: จำนวนรายการล่าสุด
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_environment.ReadingResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ประวัติค่าที่วัดได้ของตำแหน่งหนึ่ง
+      tags:
+      - environment
+  /environment/readings:
+    post:
+      consumes:
+      - application/json
+      description: ประเมิน threshold อัตโนมัติและสร้าง/ยกระดับ alert พร้อมแจ้งเตือนหากเกินขอบเขต
+      parameters:
+      - description: ค่าที่วัดได้
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_environment.RecordReadingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: บันทึกค่าที่วัดได้จากเซนเซอร์
+      tags:
+      - environment
+  /equipment:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_equipment.EquipmentResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการอุปกรณ์ทั้งหมด
+      tags:
+      - equipment
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ข้อมูลอุปกรณ์
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_equipment.CreateEquipmentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.EquipmentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เพิ่มอุปกรณ์ใหม่
+      tags:
+      - equipment
+  /equipment/{id}:
+    get:
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.EquipmentResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลอุปกรณ์ตาม ID
+      tags:
+      - equipment
+  /equipment/{id}/calibration:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: วันสอบเทียบครั้งถัดไป
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_equipment.RecordCalibrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.EquipmentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: บันทึกการสอบเทียบอุปกรณ์
+      tags:
+      - equipment
+  /equipment/{id}/calibration-events:
+    get:
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_equipment.CalibrationEventResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ประวัติการสอบเทียบของอุปกรณ์
+      tags:
+      - equipment
+  /inventory:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการวัสดุคงคลังทั้งหมด
+      tags:
+      - inventory
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ข้อมูลรายการ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_inventory.CreateItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เพิ่มรายการวัสดุคงคลังใหม่
+      tags:
+      - inventory
+  /inventory/{id}:
+    get:
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลรายการวัสดุคงคลังตาม ID
+      tags:
+      - inventory
+  /inventory/{id}/quantity:
+    patch:
+      consumes:
+      - application/json
+      description: แจ้งเตือนอัตโนมัติหากจำนวนต่ำกว่า min
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: จำนวนใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_inventory.UpdateQuantityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ปรับจำนวนคงคลัง
+      tags:
+      - inventory
+  /inventory/{id}/reorder:
+    post:
+      consumes:
+      - application/json
+      description: สร้าง purchase order จากรายการที่ต่ำกว่า min ด้วยตนเอง
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ผู้ขาย
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_inventory.ReorderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สั่งซื้อเพิ่ม (สร้างใบสั่งซื้อ)
+      tags:
+      - inventory
+  /notifications:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_notification.NotificationResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการแจ้งเตือนของผู้ใช้ปัจจุบัน
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    patch:
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ทำเครื่องหมายว่าอ่านแล้ว (รายการเดียว)
+      tags:
+      - notifications
+  /notifications/read-all:
+    patch:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ทำเครื่องหมายว่าอ่านแล้วทั้งหมด
+      tags:
+      - notifications
+  /purchase-orders:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_purchaseorder.POResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการใบสั่งซื้อทั้งหมด
+      tags:
+      - purchase-orders
+  /purchase-orders/{id}:
+    get:
+      parameters:
+      - description: Purchase Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_purchaseorder.POResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลใบสั่งซื้อตาม ID
+      tags:
+      - purchase-orders
+  /purchase-orders/{id}/approve:
+    patch:
+      parameters:
+      - description: Purchase Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_purchaseorder.POResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: อนุมัติใบสั่งซื้อ
+      tags:
+      - purchase-orders
+  /purchase-orders/{id}/receive:
+    patch:
+      description: เพิ่มจำนวนคงคลังตามใบสั่งซื้อโดยอัตโนมัติ
+      parameters:
+      - description: Purchase Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_purchaseorder.POResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: บันทึกรับสินค้าตามใบสั่งซื้อ
+      tags:
+      - purchase-orders
+  /samples:
+    get:
+      description: รองรับ filter ผ่าน query param `status` และ `type`
+      parameters:
+      - description: กรองตามสถานะ
+        in: query
+        name: status
+        type: string
+      - description: กรองตามประเภท
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_sample.SampleResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการตัวอย่างทั้งหมด
+      tags:
+      - samples
+    post:
+      consumes:
+      - application/json
+      description: สร้าง sample record ใหม่พร้อมเริ่ม chain-of-custody
+      parameters:
+      - description: ข้อมูลตัวอย่าง
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_sample.CreateSampleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_sample.SampleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สร้างตัวอย่างใหม่
+      tags:
+      - samples
+  /samples/{id}:
+    get:
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_sample.SampleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลตัวอย่างตาม ID
+      tags:
+      - samples
+  /samples/{id}/coc:
+    get:
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_sample.CoCStepResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ประวัติ chain-of-custody ของตัวอย่าง
+      tags:
+      - samples
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ข้อมูล step
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_sample.AppendCoCStepRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_sample.CoCStepResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เพิ่ม chain-of-custody step ด้วยตนเอง
+      tags:
+      - samples
+  /samples/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: เปลี่ยนสถานะ sample และบันทึก chain-of-custody step ให้อัตโนมัติ
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: สถานะใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_sample.UpdateStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_sample.SampleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เปลี่ยนสถานะตัวอย่าง
+      tags:
+      - samples
+  /samples/{id}/tests:
+    get:
+      description: ListBySample serves the nested GET /samples/:id/tests convenience
+        route.
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการผลทดสอบของตัวอย่างหนึ่ง
+      tags:
+      - test-results
+  /tests:
+    get:
+      description: รองรับ filter ผ่าน query param `sample_id` และ `status`
+      parameters:
+      - description: กรองตาม Sample ID
+        in: query
+        name: sample_id
+        type: string
+      - description: กรองตามสถานะ
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการผลทดสอบทั้งหมด
+      tags:
+      - test-results
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ข้อมูลการทดสอบ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_testresult.CreateTestResultRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สร้างรายการทดสอบใหม่
+      tags:
+      - test-results
+  /tests/{id}:
+    get:
+      parameters:
+      - description: Test Result ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงผลทดสอบตาม ID
+      tags:
+      - test-results
+  /tests/{id}/approve:
+    patch:
+      description: แจ้งเตือนผู้เกี่ยวข้องเมื่ออนุมัติสำเร็จ
+      parameters:
+      - description: Test Result ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: อนุมัติผลทดสอบ
+      tags:
+      - test-results
+  /tests/{id}/report:
+    get:
+      description: สร้าง PDF ผลการทดสอบ + ข้อมูลตัวอย่าง + chain-of-custody trail
+      parameters:
+      - description: Test Result ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดาวน์โหลดรายงานผลทดสอบ (PDF)
+      tags:
+      - test-results
+  /tests/{id}/result:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Test Result ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ผลการทดสอบ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_testresult.SubmitResultRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_testresult.TestResultResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: บันทึกผลการทดสอบ
+      tags:
+      - test-results
+  /users:
+    get:
+      description: เฉพาะ admin เท่านั้น
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายชื่อผู้ใช้ทั้งหมด
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: เฉพาะ admin เท่านั้น
+      parameters:
+      - description: ข้อมูลผู้ใช้ใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สร้างผู้ใช้ใหม่
+      tags:
+      - users
+  /users/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: เฉพาะ admin เท่านั้น
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ข้อมูลที่ต้องการแก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขผู้ใช้
+      tags:
+      - users
+  /users/me:
+    get:
+      description: คืนข้อมูลผู้ใช้ที่ authenticate อยู่ (จาก access token)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ข้อมูลผู้ใช้ปัจจุบัน
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: พิมพ์ "Bearer" ตามด้วยเว้นวรรคและ JWT access token เช่น "Bearer eyJhbGciOi..."
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

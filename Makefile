@@ -3,7 +3,7 @@ export
 
 MIGRATIONS_DIR=migrations
 
-.PHONY: migrate-up migrate-down migrate-create migrate-force run-api run-seed test test-integration build
+.PHONY: migrate-up migrate-down migrate-create migrate-force run-api run-seed test test-integration build swagger
 
 migrate-up:
 	migrate -database "$(DATABASE_URL)" -path $(MIGRATIONS_DIR) up
@@ -34,3 +34,9 @@ test-integration:
 build:
 	go build -o bin/api ./cmd/api
 	go build -o bin/seed ./cmd/seed
+
+# Regenerates docs/ from the @-annotations on handlers (internal/adapters/http/**/handler.go)
+# and cmd/api/main.go. Commit the regenerated docs/ - it's imported by cmd/api and must be
+# present for `go build` to succeed without running swag first.
+swagger:
+	swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal
