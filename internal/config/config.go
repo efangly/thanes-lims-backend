@@ -26,6 +26,9 @@ type Config struct {
 	MinioSecretKey string `env:"MINIO_SECRET_KEY,required"`
 	MinioBucket    string `env:"MINIO_BUCKET,required"`
 	MinioUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"true"`
+
+	AutoReorderEnabled  bool          `env:"AUTO_REORDER_ENABLED" envDefault:"true"`
+	AutoReorderInterval time.Duration `env:"AUTO_REORDER_INTERVAL" envDefault:"1h"`
 }
 
 // Load reads .env (if present) then binds environment variables onto Config.

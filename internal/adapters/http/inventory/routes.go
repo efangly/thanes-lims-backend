@@ -14,5 +14,6 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	inv.Get("/", h.List)
 	inv.Get("/:id", h.Get)
 	inv.Patch("/:id/quantity", h.UpdateQuantity)
+	inv.Patch("/:id/default-vendor", h.UpdateDefaultVendor)
 	inv.Post("/:id/reorder", h.Reorder)
 }

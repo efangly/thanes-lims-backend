@@ -13,6 +13,7 @@ import (
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
+	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/config"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -64,7 +65,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	registerRoutes(v1, cfg, gdb, fileStorage)
+	autoReorderJob := registerRoutes(v1, cfg, gdb, fileStorage)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {
@@ -72,13 +73,59 @@ func main() {
 		}
 	}()
 
+	jobCtx, cancelJob := context.WithCancel(context.Background())
+	jobDone := make(chan struct{})
+	if cfg.AutoReorderEnabled {
+		go runAutoReorderJob(jobCtx, jobDone, autoReorderJob, cfg.AutoReorderInterval)
+	} else {
+		close(jobDone)
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	cancelJob()
+	<-jobDone
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := app.ShutdownWithContext(ctx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+}
+
+// runAutoReorderJob periodically scans inventory for items below their
+// minimum threshold and reorders those with a configured default vendor.
+// It runs once immediately on startup, then on every tick, and exits
+// (closing done) as soon as ctx is cancelled during shutdown.
+func runAutoReorderJob(ctx context.Context, done chan<- struct{}, job *applicationpurchaseorder.AutoReorderJob, interval time.Duration) {
+	defer close(done)
+
+	runOnce := func() {
+		result, err := job.Run(ctx)
+		if err != nil {
+			log.Printf("auto-reorder: %v", err)
+			return
+		}
+		if len(result.Created) > 0 {
+			log.Printf("auto-reorder: created %d purchase order(s)", len(result.Created))
+		}
+		if len(result.SkippedNoVendor) > 0 {
+			log.Printf("auto-reorder: skipped %d item(s) below min with no default vendor: %v", len(result.SkippedNoVendor), result.SkippedNoVendor)
+		}
+	}
+
+	runOnce()
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runOnce()
+		}
 	}
 }

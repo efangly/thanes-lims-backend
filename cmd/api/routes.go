@@ -44,8 +44,10 @@ import (
 
 // registerRoutes mounts each module's routes onto the /api/v1 group. Module
 // registration calls are added here as each module is built (user, sample,
-// testresult, ... per the implementation plan).
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter) {
+// testresult, ... per the implementation plan). It also returns the
+// auto-reorder job so main can run it on a schedule alongside the HTTP
+// server, since it's composed from the same repositories wired up here.
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter) *applicationpurchaseorder.AutoReorderJob {
 	v1.Get("/health", func(c fiber.Ctx) error {
 		return response.OK(c, fiber.Map{"status": "ok"})
 	})
@@ -117,9 +119,12 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationinventory.NewListItemsUseCase(inventoryRepo),
 		applicationinventory.NewGetItemUseCase(inventoryRepo),
 		applicationinventory.NewUpdateQuantityUseCase(inventoryRepo, notifier),
+		applicationinventory.NewUpdateDefaultVendorUseCase(inventoryRepo),
 		reorderUseCase,
 	)
 	httpinventory.RegisterRoutes(v1, inventoryHandler, tokens)
+
+	autoReorderJob := applicationpurchaseorder.NewAutoReorderJob(inventoryRepo, purchaseOrderRepo, reorderUseCase)
 
 	purchaseOrderHandler := httppurchaseorder.NewHandler(
 		applicationpurchaseorder.NewListPOsUseCase(purchaseOrderRepo),
@@ -168,4 +173,6 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	auditRepo := postgresaudit.New(gdb)
 	auditHandler := httpaudit.NewHandler(applicationaudit.NewListAuditLogsUseCase(auditRepo))
 	httpaudit.RegisterRoutes(v1, auditHandler, tokens)
+
+	return autoReorderJob
 }

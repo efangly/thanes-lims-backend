@@ -1324,6 +1324,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/inventory/{id}/default-vendor": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ใช้เป็นผู้ขายเมื่อระบบสั่งซื้อเพิ่มอัตโนมัติ (auto-reorder)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "ตั้งค่าผู้ขายเริ่มต้นของรายการ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ผู้ขายเริ่มต้น",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_inventory.UpdateDefaultVendorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_inventory.ItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/inventory/{id}/quantity": {
             "patch": {
                 "security": [
@@ -3141,6 +3217,9 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
+                "default_vendor": {
+                    "type": "string"
+                },
                 "max": {
                     "type": "integer"
                 },
@@ -3162,6 +3241,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "category": {
+                    "type": "string"
+                },
+                "default_vendor": {
                     "type": "string"
                 },
                 "id": {
@@ -3191,6 +3273,17 @@ const docTemplate = `{
             }
         },
         "internal_adapters_http_inventory.ReorderRequest": {
+            "type": "object",
+            "required": [
+                "vendor"
+            ],
+            "properties": {
+                "vendor": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.UpdateDefaultVendorRequest": {
             "type": "object",
             "required": [
                 "vendor"

@@ -9,13 +9,14 @@ const (
 )
 
 type InventoryItem struct {
-	ID       string
-	Name     string
-	Category string
-	Quantity int
-	Unit     string
-	Min      int
-	Max      int
+	ID            string
+	Name          string
+	Category      string
+	Quantity      int
+	Unit          string
+	Min           int
+	Max           int
+	DefaultVendor string
 }
 
 // Pct and DerivedStatus are computed on read, never stored, so they can

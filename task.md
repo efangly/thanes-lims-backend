@@ -32,7 +32,7 @@ Phase 1 (Auth/Sample/TestResult) และ Phase 2 (Equipment/Inventory+PO/Docum
 
 ## Inventory / PurchaseOrder
 
-- [ ] พิจารณาทำ automated reorder (scheduled job ตรวจ item ต่ำกว่า min แล้วสร้าง PO อัตโนมัติ) แทนการกดเองผ่าน endpoint — ตอนนี้เป็น manual ตามที่ตกลงไว้สำหรับ MVP
+- [x] พิจารณาทำ automated reorder (scheduled job ตรวจ item ต่ำกว่า min แล้วสร้าง PO อัตโนมัติ) แทนการกดเองผ่าน endpoint — ตอนนี้เป็น manual ตามที่ตกลงไว้สำหรับ MVP (เพิ่ม `default_vendor` (nullable) ใน `inventory_items` ผ่าน migration `000015`, ตั้งค่าได้ตอนสร้าง item หรือผ่าน `PATCH /inventory/:id/default-vendor`; เพิ่ม `AutoReorderJob` (`internal/application/purchaseorder/auto_reorder_job.go`) reuse `CreateFromLowStockUseCase` เดิม — สแกนทุก item ทุก tick, ข้าม item ที่ไม่มี default vendor หรือมี PO ค้างอยู่แล้ว (กันสร้างซ้ำ) — รันเป็น `time.Ticker` goroutine ใน `cmd/api/main.go` คุมด้วย env `AUTO_REORDER_ENABLED` (default true) / `AUTO_REORDER_INTERVAL` (default `1h`), หยุดสะอาดตอน graceful shutdown)
 
 ## RBAC
 

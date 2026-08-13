@@ -212,14 +212,16 @@ func seedInventory(ctx context.Context, inventory *postgresinventory.Repository,
 		category      string
 		qty, min, max int
 		unit          string
+		vendor        string
 	}{
-		{"เอทานอล 95%", "รีเอเจนต์", 5, 20, 100, "ลิตร"}, // deliberately below min to demo reorder flow
-		{"ถุงมือไนไตรล์", "วัสดุสิ้นเปลือง", 80, 30, 100, "กล่อง"},
+		{"เอทานอล 95%", "รีเอเจนต์", 5, 20, 100, "ลิตร", "บริษัท เคมีภัณฑ์ไทย จำกัด"}, // deliberately below min to demo auto-reorder flow
+		{"ถุงมือไนไตรล์", "วัสดุสิ้นเปลือง", 80, 30, 100, "กล่อง", "บริษัท เซฟตี้ ซัพพลาย จำกัด"},
 	}
 
 	for _, s := range specs {
 		_, err := create.Execute(ctx, applicationinventory.CreateItemInput{
 			Name: s.name, Category: s.category, Quantity: s.qty, Unit: s.unit, Min: s.min, Max: s.max,
+			DefaultVendor: s.vendor,
 		})
 		if err != nil {
 			log.Fatalf("seed inventory %s: %v", s.name, err)

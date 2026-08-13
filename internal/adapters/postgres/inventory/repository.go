@@ -19,25 +19,27 @@ func New(db *gorm.DB) *Repository {
 
 func toDomain(m Model) inventory.InventoryItem {
 	return inventory.InventoryItem{
-		ID:       m.ID,
-		Name:     m.Name,
-		Category: m.Category,
-		Quantity: m.Quantity,
-		Unit:     m.Unit,
-		Min:      m.Min,
-		Max:      m.Max,
+		ID:            m.ID,
+		Name:          m.Name,
+		Category:      m.Category,
+		Quantity:      m.Quantity,
+		Unit:          m.Unit,
+		Min:           m.Min,
+		Max:           m.Max,
+		DefaultVendor: m.DefaultVendor,
 	}
 }
 
 func toModel(i inventory.InventoryItem) Model {
 	return Model{
-		ID:       i.ID,
-		Name:     i.Name,
-		Category: i.Category,
-		Quantity: i.Quantity,
-		Unit:     i.Unit,
-		Min:      i.Min,
-		Max:      i.Max,
+		ID:            i.ID,
+		Name:          i.Name,
+		Category:      i.Category,
+		Quantity:      i.Quantity,
+		Unit:          i.Unit,
+		Min:           i.Min,
+		Max:           i.Max,
+		DefaultVendor: i.DefaultVendor,
 	}
 }
 
@@ -75,6 +77,13 @@ func (r *Repository) List(ctx context.Context) ([]inventory.InventoryItem, error
 
 func (r *Repository) UpdateQuantity(ctx context.Context, id string, quantity int) (inventory.InventoryItem, error) {
 	if err := r.db.WithContext(ctx).Model(&Model{}).Where("id = ?", id).Update("quantity", quantity).Error; err != nil {
+		return inventory.InventoryItem{}, err
+	}
+	return r.FindByID(ctx, id)
+}
+
+func (r *Repository) UpdateDefaultVendor(ctx context.Context, id string, vendor string) (inventory.InventoryItem, error) {
+	if err := r.db.WithContext(ctx).Model(&Model{}).Where("id = ?", id).Update("default_vendor", vendor).Error; err != nil {
 		return inventory.InventoryItem{}, err
 	}
 	return r.FindByID(ctx, id)

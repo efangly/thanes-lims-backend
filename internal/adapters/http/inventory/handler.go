@@ -13,11 +13,12 @@ type ReorderRequest struct {
 }
 
 type Handler struct {
-	create         *applicationinventory.CreateItemUseCase
-	list           *applicationinventory.ListItemsUseCase
-	get            *applicationinventory.GetItemUseCase
-	updateQuantity *applicationinventory.UpdateQuantityUseCase
-	reorder        *applicationpurchaseorder.CreateFromLowStockUseCase
+	create              *applicationinventory.CreateItemUseCase
+	list                *applicationinventory.ListItemsUseCase
+	get                 *applicationinventory.GetItemUseCase
+	updateQuantity      *applicationinventory.UpdateQuantityUseCase
+	updateDefaultVendor *applicationinventory.UpdateDefaultVendorUseCase
+	reorder             *applicationpurchaseorder.CreateFromLowStockUseCase
 }
 
 func NewHandler(
@@ -25,9 +26,10 @@ func NewHandler(
 	list *applicationinventory.ListItemsUseCase,
 	get *applicationinventory.GetItemUseCase,
 	updateQuantity *applicationinventory.UpdateQuantityUseCase,
+	updateDefaultVendor *applicationinventory.UpdateDefaultVendorUseCase,
 	reorder *applicationpurchaseorder.CreateFromLowStockUseCase,
 ) *Handler {
-	return &Handler{create: create, list: list, get: get, updateQuantity: updateQuantity, reorder: reorder}
+	return &Handler{create: create, list: list, get: get, updateQuantity: updateQuantity, updateDefaultVendor: updateDefaultVendor, reorder: reorder}
 }
 
 // Create godoc
@@ -53,6 +55,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 
 	item, err := h.create.Execute(c.Context(), applicationinventory.CreateItemInput{
 		Name: req.Name, Category: req.Category, Quantity: req.Quantity, Unit: req.Unit, Min: req.Min, Max: req.Max,
+		DefaultVendor: req.DefaultVendor,
 	})
 	if err != nil {
 		return err
@@ -125,6 +128,37 @@ func (h *Handler) UpdateQuantity(c fiber.Ctx) error {
 	}
 
 	item, err := h.updateQuantity.Execute(c.Context(), c.Params("id"), req.Quantity)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toResponse(item))
+}
+
+// UpdateDefaultVendor godoc
+//
+//	@Summary		ตั้งค่าผู้ขายเริ่มต้นของรายการ
+//	@Description	ใช้เป็นผู้ขายเมื่อระบบสั่งซื้อเพิ่มอัตโนมัติ (auto-reorder)
+//	@Tags			inventory
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string						true	"Item ID"
+//	@Param			request	body		UpdateDefaultVendorRequest	true	"ผู้ขายเริ่มต้น"
+//	@Success		200		{object}	response.Envelope{data=ItemResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/inventory/{id}/default-vendor [patch]
+func (h *Handler) UpdateDefaultVendor(c fiber.Ctx) error {
+	var req UpdateDefaultVendorRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	item, err := h.updateDefaultVendor.Execute(c.Context(), c.Params("id"), req.Vendor)
 	if err != nil {
 		return err
 	}

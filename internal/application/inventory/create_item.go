@@ -19,12 +19,13 @@ func NewCreateItemUseCase(items portinventory.Repository, idgen portidgen.Sequen
 }
 
 type CreateItemInput struct {
-	Name     string
-	Category string
-	Quantity int
-	Unit     string
-	Min      int
-	Max      int
+	Name          string
+	Category      string
+	Quantity      int
+	Unit          string
+	Min           int
+	Max           int
+	DefaultVendor string
 }
 
 func (uc *CreateItemUseCase) Execute(ctx context.Context, in CreateItemInput) (inventory.InventoryItem, error) {
@@ -34,13 +35,14 @@ func (uc *CreateItemUseCase) Execute(ctx context.Context, in CreateItemInput) (i
 	}
 
 	item := inventory.InventoryItem{
-		ID:       fmt.Sprintf("INV-%05d", seq),
-		Name:     in.Name,
-		Category: in.Category,
-		Quantity: in.Quantity,
-		Unit:     in.Unit,
-		Min:      in.Min,
-		Max:      in.Max,
+		ID:            fmt.Sprintf("INV-%05d", seq),
+		Name:          in.Name,
+		Category:      in.Category,
+		Quantity:      in.Quantity,
+		Unit:          in.Unit,
+		Min:           in.Min,
+		Max:           in.Max,
+		DefaultVendor: in.DefaultVendor,
 	}
 
 	return uc.items.Create(ctx, item)

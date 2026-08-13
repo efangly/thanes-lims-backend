@@ -45,6 +45,10 @@ func (m *mockInventoryRepo) UpdateQuantity(ctx context.Context, id string, quant
 	args := m.Called(ctx, id, quantity)
 	return args.Get(0).(inventory.InventoryItem), args.Error(1)
 }
+func (m *mockInventoryRepo) UpdateDefaultVendor(ctx context.Context, id string, vendor string) (inventory.InventoryItem, error) {
+	args := m.Called(ctx, id, vendor)
+	return args.Get(0).(inventory.InventoryItem), args.Error(1)
+}
 
 type mockIDGen struct{ mock.Mock }
 
