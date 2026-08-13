@@ -1,11 +1,11 @@
 package main
 
 import (
+	httpaudit "github.com/efangly/thanes-lims-backend/internal/adapters/http/audit"
 	httpdocument "github.com/efangly/thanes-lims-backend/internal/adapters/http/document"
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	httpequipment "github.com/efangly/thanes-lims-backend/internal/adapters/http/equipment"
 	httpinventory "github.com/efangly/thanes-lims-backend/internal/adapters/http/inventory"
-	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	httpnotification "github.com/efangly/thanes-lims-backend/internal/adapters/http/notification"
 	httppurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/http/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
@@ -14,6 +14,7 @@ import (
 	httpuser "github.com/efangly/thanes-lims-backend/internal/adapters/http/user"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
 	postgresequipment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/equipment"
@@ -24,6 +25,7 @@ import (
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
 	postgrestestresult "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/testresult"
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
+	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
@@ -76,13 +78,17 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	)
 	httpsample.RegisterRoutes(v1, sampleHandler, tokens)
 
+	notificationRepo := postgresnotification.New(gdb)
+	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
+
 	testResultRepo := postgrestestresult.New(gdb)
 	testResultHandler := httptestresult.NewHandler(
 		applicationtestresult.NewCreateTestResultUseCase(testResultRepo, sampleRepo, idgen),
 		applicationtestresult.NewSubmitResultUseCase(testResultRepo),
-		applicationtestresult.NewApproveResultUseCase(testResultRepo, cocRepo),
+		applicationtestresult.NewApproveResultUseCase(testResultRepo, cocRepo, notifier),
 		applicationtestresult.NewListTestResultsUseCase(testResultRepo),
 		applicationtestresult.NewGetTestResultUseCase(testResultRepo),
+		applicationtestresult.NewGenerateReportUseCase(testResultRepo, sampleRepo, cocRepo),
 	)
 	httptestresult.RegisterRoutes(v1, testResultHandler, tokens)
 
@@ -104,7 +110,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationinventory.NewCreateItemUseCase(inventoryRepo, idgen),
 		applicationinventory.NewListItemsUseCase(inventoryRepo),
 		applicationinventory.NewGetItemUseCase(inventoryRepo),
-		applicationinventory.NewUpdateQuantityUseCase(inventoryRepo),
+		applicationinventory.NewUpdateQuantityUseCase(inventoryRepo, notifier),
 		reorderUseCase,
 	)
 	httpinventory.RegisterRoutes(v1, inventoryHandler, tokens)
@@ -134,17 +140,18 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	gaugeRepo := postgresenvironment.NewGaugeRepository(gdb)
 	readingRepo := postgresenvironment.NewReadingRepository(gdb)
 	alertRepo := postgresenvironment.NewAlertRepository(gdb)
+	alertHub := httpenvironment.NewHub()
 
-	evaluateThresholds := applicationenvironment.NewEvaluateThresholdsUseCase(gaugeRepo, alertRepo)
+	evaluateThresholds := applicationenvironment.NewEvaluateThresholdsUseCase(gaugeRepo, alertRepo, notifier, alertHub)
 	environmentHandler := httpenvironment.NewHandler(
 		applicationenvironment.NewRecordReadingUseCase(readingRepo, evaluateThresholds),
 		applicationenvironment.NewListGaugesUseCase(gaugeRepo, readingRepo),
 		applicationenvironment.NewGetTrendUseCase(readingRepo),
 		applicationenvironment.NewListAlertsUseCase(alertRepo),
+		alertHub,
 	)
 	httpenvironment.RegisterRoutes(v1, environmentHandler, tokens)
 
-	notificationRepo := postgresnotification.New(gdb)
 	notificationHandler := httpnotification.NewHandler(
 		applicationnotification.NewListNotificationsUseCase(notificationRepo),
 		applicationnotification.NewMarkReadUseCase(notificationRepo),
@@ -152,17 +159,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	)
 	httpnotification.RegisterRoutes(v1, notificationHandler, tokens)
 
-	registerReportStubs(v1, middleware.Auth(tokens))
-}
-
-// registerReportStubs mounts placeholder report/export endpoints - real PDF
-// generation (e.g. gofpdf) is deferred to a later phase; for now they return
-// 501 in the standard envelope so the frontend's "generate report" /
-// "export audit report" actions have something to call against.
-func registerReportStubs(v1 fiber.Router, authGuard fiber.Handler) {
-	notImplemented := func(c fiber.Ctx) error {
-		return response.Error(c, fiber.StatusNotImplemented, "not_implemented", "report generation is not implemented yet")
-	}
-	v1.Get("/tests/:id/report", authGuard, notImplemented)
-	v1.Get("/audit/export", authGuard, notImplemented)
+	auditRepo := postgresaudit.New(gdb)
+	auditHandler := httpaudit.NewHandler(applicationaudit.NewListAuditLogsUseCase(auditRepo))
+	httpaudit.RegisterRoutes(v1, auditHandler, tokens)
 }

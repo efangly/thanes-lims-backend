@@ -25,3 +25,10 @@ type AlertRepository interface {
 	List(ctx context.Context) ([]environment.EnvAlert, error)
 	Resolve(ctx context.Context, id int64) error
 }
+
+// AlertBroadcaster pushes a newly created/escalated alert to any real-time
+// subscribers (e.g. the WebSocket hub). Kept separate from Notifier since
+// this is a transient, best-effort push, not a persisted notification.
+type AlertBroadcaster interface {
+	Broadcast(a environment.EnvAlert)
+}

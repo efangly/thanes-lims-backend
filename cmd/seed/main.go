@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
@@ -98,12 +99,14 @@ func main() {
 	docHistoryRepo := postgresdocument.NewHistoryRepository(gdb)
 	seedDocuments(ctx, documentRepo, docHistoryRepo, fileStorage, idgen, users)
 
+	notificationRepo := postgresnotification.New(gdb)
+	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
+
 	gaugeRepo := postgresenvironment.NewGaugeRepository(gdb)
 	readingRepo := postgresenvironment.NewReadingRepository(gdb)
 	alertRepo := postgresenvironment.NewAlertRepository(gdb)
-	seedEnvironment(ctx, gdb, gaugeRepo, readingRepo, alertRepo)
+	seedEnvironment(ctx, gdb, gaugeRepo, readingRepo, alertRepo, notifier)
 
-	notificationRepo := postgresnotification.New(gdb)
 	seedNotifications(ctx, notificationRepo, idgen, users)
 
 	log.Println("seed: done")
@@ -251,7 +254,7 @@ func seedDocuments(ctx context.Context, documents *postgresdocument.Repository, 
 	log.Printf("seed: created %d documents", len(specs))
 }
 
-func seedEnvironment(ctx context.Context, gdb *gorm.DB, gauges *postgresenvironment.GaugeRepository, readings *postgresenvironment.ReadingRepository, alerts *postgresenvironment.AlertRepository) {
+func seedEnvironment(ctx context.Context, gdb *gorm.DB, gauges *postgresenvironment.GaugeRepository, readings *postgresenvironment.ReadingRepository, alerts *postgresenvironment.AlertRepository, notifier *applicationnotification.AsNotifier) {
 	// Gauges are fixed monitoring points (physical sensors), not something
 	// created through the API - seed their config directly.
 	gaugeSpecs := []postgresenvironment.GaugeModel{
@@ -262,7 +265,7 @@ func seedEnvironment(ctx context.Context, gdb *gorm.DB, gauges *postgresenvironm
 		log.Fatalf("seed gauges: %v", err)
 	}
 
-	evaluate := applicationenvironment.NewEvaluateThresholdsUseCase(gauges, alerts)
+	evaluate := applicationenvironment.NewEvaluateThresholdsUseCase(gauges, alerts, notifier, httpenvironment.NewHub())
 	record := applicationenvironment.NewRecordReadingUseCase(readings, evaluate)
 
 	readingSpecs := []struct {

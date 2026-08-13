@@ -4,7 +4,9 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
+	"github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
+	"github.com/valyala/fasthttp"
 )
 
 type Handler struct {
@@ -12,6 +14,7 @@ type Handler struct {
 	listGauges *applicationenvironment.ListGaugesUseCase
 	getTrend   *applicationenvironment.GetTrendUseCase
 	listAlerts *applicationenvironment.ListAlertsUseCase
+	hub        *Hub
 }
 
 func NewHandler(
@@ -19,8 +22,9 @@ func NewHandler(
 	listGauges *applicationenvironment.ListGaugesUseCase,
 	getTrend *applicationenvironment.GetTrendUseCase,
 	listAlerts *applicationenvironment.ListAlertsUseCase,
+	hub *Hub,
 ) *Handler {
-	return &Handler{record: record, listGauges: listGauges, getTrend: getTrend, listAlerts: listAlerts}
+	return &Handler{record: record, listGauges: listGauges, getTrend: getTrend, listAlerts: listAlerts, hub: hub}
 }
 
 func (h *Handler) ListGauges(c fiber.Ctx) error {
@@ -81,4 +85,29 @@ func (h *Handler) RecordReading(c fiber.Ctx) error {
 		body["alert"] = toAlertResponse(*result.Alert)
 	}
 	return response.Created(c, body)
+}
+
+var alertsUpgrader = websocket.FastHTTPUpgrader{
+	CheckOrigin: func(ctx *fasthttp.RequestCtx) bool { return true },
+}
+
+// AlertsWS upgrades the connection to a WebSocket and streams every
+// newly created/escalated environment alert as JSON until the client
+// disconnects. Auth already ran as middleware.AuthQuery before this
+// handler, via the `token` query parameter (browsers can't set a custom
+// Authorization header on a WS handshake).
+func (h *Handler) AlertsWS(c fiber.Ctx) error {
+	return alertsUpgrader.Upgrade(c.RequestCtx(), func(conn *websocket.Conn) {
+		h.hub.Register(conn)
+		defer func() {
+			h.hub.Unregister(conn)
+			conn.Close()
+		}()
+
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	})
 }

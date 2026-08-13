@@ -9,9 +9,16 @@ import (
 func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	authGuard := middleware.Auth(tokens)
 
-	env := r.Group("/environment", authGuard)
-	env.Get("/gauges", h.ListGauges)
-	env.Get("/gauges/:loc/trend", h.GetTrend)
-	env.Get("/alerts", h.ListAlerts)
-	env.Post("/readings", h.RecordReading)
+	// Middleware is applied per-route (not group-level) because a
+	// group-level middleware in Fiber v3 is mounted against the prefix
+	// itself and would also run on /alerts/ws below, which needs a
+	// different auth check (query token, not header) since a browser's WS
+	// handshake can't carry an Authorization header.
+	env := r.Group("/environment")
+	env.Get("/gauges", authGuard, h.ListGauges)
+	env.Get("/gauges/:loc/trend", authGuard, h.GetTrend)
+	env.Get("/alerts", authGuard, h.ListAlerts)
+	env.Post("/readings", authGuard, h.RecordReading)
+
+	env.Get("/alerts/ws", middleware.AuthQuery(tokens), h.AlertsWS)
 }

@@ -26,17 +26,33 @@ func Auth(tokens portuser.TokenService) fiber.Handler {
 		if !strings.HasPrefix(header, prefix) {
 			return fiber.NewError(fiber.StatusUnauthorized, "missing bearer token")
 		}
-
-		claims, err := tokens.ParseAccessToken(strings.TrimPrefix(header, prefix))
-		if err != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired token")
-		}
-
-		c.Locals(LocalsUserID, claims.UserID)
-		c.Locals(LocalsName, claims.Name)
-		c.Locals(LocalsRole, claims.Role)
-		return c.Next()
+		return authenticate(c, tokens, strings.TrimPrefix(header, prefix))
 	}
+}
+
+// AuthQuery validates the access token passed as a `token` query parameter,
+// for routes a browser can't attach an Authorization header to - namely the
+// WebSocket upgrade handshake.
+func AuthQuery(tokens portuser.TokenService) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		token := fiber.Query[string](c, "token")
+		if token == "" {
+			return fiber.NewError(fiber.StatusUnauthorized, "missing token query parameter")
+		}
+		return authenticate(c, tokens, token)
+	}
+}
+
+func authenticate(c fiber.Ctx, tokens portuser.TokenService, rawToken string) error {
+	claims, err := tokens.ParseAccessToken(rawToken)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired token")
+	}
+
+	c.Locals(LocalsUserID, claims.UserID)
+	c.Locals(LocalsName, claims.Name)
+	c.Locals(LocalsRole, claims.Role)
+	return c.Next()
 }
 
 // RequireRole gates a route to a set of roles, checked against the RBAC

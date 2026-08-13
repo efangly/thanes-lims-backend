@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/audit"
 )
@@ -11,4 +12,11 @@ import (
 // not propagated to the caller's response.
 type AuditLogger interface {
 	Log(ctx context.Context, entry audit.AuditLog) error
+	List(ctx context.Context, filter ListFilter) ([]audit.AuditLog, error)
+}
+
+// ListFilter narrows an export to a date range; a nil bound is open-ended.
+type ListFilter struct {
+	From *time.Time
+	To   *time.Time
 }

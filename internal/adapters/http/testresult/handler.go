@@ -1,9 +1,12 @@
 package testresult
 
 import (
+	"fmt"
+
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/pdf"
 	applicationtestresult "github.com/efangly/thanes-lims-backend/internal/application/testresult"
 	"github.com/efangly/thanes-lims-backend/internal/domain/testresult"
 	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
@@ -12,11 +15,12 @@ import (
 )
 
 type Handler struct {
-	create  *applicationtestresult.CreateTestResultUseCase
-	submit  *applicationtestresult.SubmitResultUseCase
-	approve *applicationtestresult.ApproveResultUseCase
-	list    *applicationtestresult.ListTestResultsUseCase
-	get     *applicationtestresult.GetTestResultUseCase
+	create    *applicationtestresult.CreateTestResultUseCase
+	submit    *applicationtestresult.SubmitResultUseCase
+	approve   *applicationtestresult.ApproveResultUseCase
+	list      *applicationtestresult.ListTestResultsUseCase
+	get       *applicationtestresult.GetTestResultUseCase
+	genReport *applicationtestresult.GenerateReportUseCase
 }
 
 func NewHandler(
@@ -25,8 +29,9 @@ func NewHandler(
 	approve *applicationtestresult.ApproveResultUseCase,
 	list *applicationtestresult.ListTestResultsUseCase,
 	get *applicationtestresult.GetTestResultUseCase,
+	genReport *applicationtestresult.GenerateReportUseCase,
 ) *Handler {
-	return &Handler{create: create, submit: submit, approve: approve, list: list, get: get}
+	return &Handler{create: create, submit: submit, approve: approve, list: list, get: get, genReport: genReport}
 }
 
 func (h *Handler) Create(c fiber.Ctx) error {
@@ -111,6 +116,27 @@ func (h *Handler) SubmitResult(c fiber.Ctx) error {
 		return err
 	}
 	return response.OK(c, toResponse(t))
+}
+
+func (h *Handler) GetReport(c fiber.Ctx) error {
+	id := c.Params("id")
+	data, err := h.genReport.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	body, err := pdf.TestResultReport(pdf.TestResultReportData{
+		Result:   data.Result,
+		Sample:   data.Sample,
+		CoCSteps: data.CoCSteps,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.Set(fiber.HeaderContentType, "application/pdf")
+	c.Set(fiber.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="%s-report.pdf"`, id))
+	return c.Send(body)
 }
 
 func (h *Handler) Approve(c fiber.Ctx) error {

@@ -3,6 +3,7 @@ package testresult_test
 import (
 	"context"
 
+	"github.com/efangly/thanes-lims-backend/internal/domain/notification"
 	domainsample "github.com/efangly/thanes-lims-backend/internal/domain/sample"
 	"github.com/efangly/thanes-lims-backend/internal/domain/testresult"
 	portsample "github.com/efangly/thanes-lims-backend/internal/ports/sample"
@@ -64,4 +65,11 @@ type mockIDGen struct{ mock.Mock }
 func (m *mockIDGen) Next(ctx context.Context, scope string, year *int) (int64, error) {
 	args := m.Called(ctx, scope, year)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+type mockNotifier struct{ mock.Mock }
+
+func (m *mockNotifier) Notify(ctx context.Context, n notification.Notification) error {
+	args := m.Called(ctx, n)
+	return args.Error(0)
 }

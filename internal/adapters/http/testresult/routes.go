@@ -15,6 +15,7 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	tests.Get("/:id", h.Get)
 	tests.Patch("/:id/result", h.SubmitResult)
 	tests.Patch("/:id/approve", h.Approve)
+	tests.Get("/:id/report", h.GetReport)
 
 	// Nested convenience route, registered independently of the sample
 	// module's own route group.

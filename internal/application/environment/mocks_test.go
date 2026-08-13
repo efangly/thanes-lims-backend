@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/environment"
+	"github.com/efangly/thanes-lims-backend/internal/domain/notification"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -53,4 +54,17 @@ func (m *mockAlertRepo) List(ctx context.Context) ([]environment.EnvAlert, error
 func (m *mockAlertRepo) Resolve(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
+}
+
+type mockNotifier struct{ mock.Mock }
+
+func (m *mockNotifier) Notify(ctx context.Context, n notification.Notification) error {
+	args := m.Called(ctx, n)
+	return args.Error(0)
+}
+
+type mockBroadcaster struct{ mock.Mock }
+
+func (m *mockBroadcaster) Broadcast(a environment.EnvAlert) {
+	m.Called(a)
 }

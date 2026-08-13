@@ -5,21 +5,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/efangly/thanes-lims-backend/internal/domain/notification"
 	domainsample "github.com/efangly/thanes-lims-backend/internal/domain/sample"
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
 	"github.com/efangly/thanes-lims-backend/internal/domain/testresult"
 	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
+	portnotification "github.com/efangly/thanes-lims-backend/internal/ports/notification"
 	portsample "github.com/efangly/thanes-lims-backend/internal/ports/sample"
 	porttestresult "github.com/efangly/thanes-lims-backend/internal/ports/testresult"
 )
 
 type ApproveResultUseCase struct {
-	results porttestresult.Repository
-	coc     portsample.CoCRepository
+	results  porttestresult.Repository
+	coc      portsample.CoCRepository
+	notifier portnotification.Notifier
 }
 
-func NewApproveResultUseCase(results porttestresult.Repository, coc portsample.CoCRepository) *ApproveResultUseCase {
-	return &ApproveResultUseCase{results: results, coc: coc}
+func NewApproveResultUseCase(results porttestresult.Repository, coc portsample.CoCRepository, notifier portnotification.Notifier) *ApproveResultUseCase {
+	return &ApproveResultUseCase{results: results, coc: coc, notifier: notifier}
 }
 
 type ApproveResultInput struct {
@@ -61,6 +64,14 @@ func (uc *ApproveResultUseCase) Execute(ctx context.Context, in ApproveResultInp
 		OccurredAt: time.Now(),
 	})
 	if err != nil {
+		return testresult.TestResult{}, err
+	}
+
+	if err := uc.notifier.Notify(ctx, notification.Notification{
+		Tone:    notification.ToneGreen,
+		Title:   "ผลการทดสอบได้รับการอนุมัติ",
+		Message: fmt.Sprintf("ผลการทดสอบ %s ได้รับการอนุมัติโดย %s", t.ID, in.ActorName),
+	}); err != nil {
 		return testresult.TestResult{}, err
 	}
 
