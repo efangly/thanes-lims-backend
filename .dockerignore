@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.agents
+.env
+.env.example
+*.log
+/bin
+/tmp
+*.test
+coverage.out
+.idea
+.DS_Store
+task.md
+SEED_CREDENTIALS.md

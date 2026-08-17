@@ -36,9 +36,9 @@ Phase 1 (Auth/Sample/TestResult) และ Phase 2 (Equipment/Inventory+PO/Docum
 
 ## RBAC
 
-- [ ] ทบทวนว่า permission ต้องแยกระดับ module หรือไม่ (ตอนนี้เป็น global-per-role ตามที่ตกลงไว้ — ถ้า requirement เปลี่ยนต้องปรับ `internal/domain/user/role.go`)
+- [x] ทบทวนว่า permission ต้องแยกระดับ module หรือไม่ (ตอนนี้เป็น global-per-role ตามที่ตกลงไว้ — ถ้า requirement เปลี่ยนต้องปรับ `internal/domain/user/role.go`) — **ทบทวนแล้ว (2026-08-13): คงเป็น global-per-role ต่อไป** เหมาะกับ MVP ที่มี role น้อยและยังไม่มี requirement ต้องการความละเอียดระดับ module ถ้าอนาคตมี requirement ชัดเจนค่อยกลับมาปรับ
 
 ## Dev Ops
 
 - [x] `git commit` งานทั้งหมด (commit ครบแล้ว, ยังไม่ได้ `git push` ขึ้น origin)
-- [ ] เชื่อมต่อ Postgres + MinIO cloud instance จริงสำหรับ demo (ตอนนี้ verify ผ่าน container ชั่วคราวที่ลบทิ้งแล้วเท่านั้น) แล้วรัน `make migrate-up` + `go run ./cmd/seed` กับของจริง
+- [x] เชื่อมต่อ Postgres + MinIO cloud instance จริงสำหรับ demo (ตอนนี้ verify ผ่าน container ชั่วคราวที่ลบทิ้งแล้วเท่านั้น) แล้วรัน `make migrate-up` + `go run ./cmd/seed` กับของจริง — เชื่อมกับ instance จริงที่ `192.168.0.207` (Postgres:5432, MinIO:9002) ตาม `.env` ที่มีอยู่แล้ว (แก้ `DATABASE_URL` เพิ่ม `?sslmode=disable` เพราะ server ไม่ได้เปิด SSL), ติดตั้ง `golang-migrate` CLI ผ่าน `brew install golang-migrate`, รัน `make migrate-up` ผ่านครบ 15 migrations, รัน `go run ./cmd/seed` สร้างข้อมูลตัวอย่างสำเร็จ (users/samples/test results/equipment/inventory/documents ผ่าน MinIO/gauges/notifications), บูต `go run ./cmd/api` ยืนยันเชื่อมต่อ DB จริงและ auto-reorder job ทำงานได้ปกติ
