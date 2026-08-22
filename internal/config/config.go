@@ -29,6 +29,10 @@ type Config struct {
 
 	AutoReorderEnabled  bool          `env:"AUTO_REORDER_ENABLED" envDefault:"true"`
 	AutoReorderInterval time.Duration `env:"AUTO_REORDER_INTERVAL" envDefault:"1h"`
+
+	// Oracle (Select AI chatbot POC) - separate ADB instance, not the Postgres system of record.
+	OracleDSN      string `env:"ORACLE_DSN"`
+	OracleTNSAdmin string `env:"ORACLE_TNS_ADMIN"`
 }
 
 // Load reads .env (if present) then binds environment variables onto Config.
