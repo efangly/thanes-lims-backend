@@ -67,6 +67,13 @@ jobs:
           version: ${{ github.ref_name }}
           image: docker.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          RESPONSE=$(curl -sS -w '\n%{http_code}' -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            --data-urlencode "text=${TEXT}"
+            --data-urlencode "text=${TEXT}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Telegram API response ($HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Telegram notification failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
