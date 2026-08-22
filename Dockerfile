@@ -20,14 +20,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM alpine:3.21 AS runtime
 
 RUN apk add --no-cache ca-certificates tzdata \
-    && addgroup -S app && adduser -S app -G app
+    && addgroup -S -g 10001 app && adduser -S -u 10001 app -G app
 
 WORKDIR /app
 
 COPY --from=build /out/api ./api
 COPY migrations ./migrations
 
-USER app
+USER 10001:10001
 
 EXPOSE 8080
 
