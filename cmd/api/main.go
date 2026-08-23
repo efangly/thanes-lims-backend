@@ -10,6 +10,7 @@ import (
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
@@ -40,6 +41,18 @@ func main() {
 	gdb, err := db.New(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db: %v", err)
+	}
+
+	// Oracle ADB (chatbot POC) is optional - failure here must never crash
+	// the main API, which stays fully functional on Postgres alone.
+	if cfg.OracleDSN != "" {
+		oracleDB, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
+		if err != nil {
+			log.Printf("oracle: connect failed, ADB features disabled: %v", err)
+		} else {
+			defer oracleDB.Close()
+			log.Println("oracle: connected to ADB")
+		}
 	}
 
 	// Composition root: wire adapters -> ports -> use cases -> handlers.
