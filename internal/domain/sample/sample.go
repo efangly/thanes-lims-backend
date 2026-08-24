@@ -36,6 +36,11 @@ const (
 	StatusTransferred Status = "transferred"
 )
 
+// OccupyingStatuses are the Statuses under which a Sample still occupies its
+// assigned leaf Location. Transferred frees the Location back up (see
+// CONTEXT.md#storage-location).
+var OccupyingStatuses = []Status{StatusPending, StatusTesting, StatusCompleted}
+
 // validTransitions encodes the sample lifecycle state machine. Completed is
 // terminal - a sample is never reopened, matching real LIMS practice (a new
 // sample/re-test is created instead).
@@ -51,7 +56,7 @@ type Sample struct {
 	Name       string
 	Type       Type
 	Custodian  string
-	Location   string
+	LocationID *string
 	Status     Status
 	ReceivedAt time.Time
 }

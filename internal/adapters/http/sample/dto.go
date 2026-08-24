@@ -7,14 +7,18 @@ import (
 )
 
 type CreateSampleRequest struct {
-	Name      string `json:"name" validate:"required"`
-	Type      string `json:"type" validate:"required"`
-	Custodian string `json:"custodian" validate:"required"`
-	Location  string `json:"location" validate:"required"`
+	Name       string  `json:"name" validate:"required"`
+	Type       string  `json:"type" validate:"required"`
+	Custodian  string  `json:"custodian" validate:"required"`
+	LocationID *string `json:"location_id"`
 }
 
 type UpdateStatusRequest struct {
 	Status string `json:"status" validate:"required"`
+}
+
+type AssignLocationRequest struct {
+	LocationID string `json:"location_id" validate:"required"`
 }
 
 type AppendCoCStepRequest struct {
@@ -27,7 +31,7 @@ type SampleResponse struct {
 	Name       string    `json:"name"`
 	Type       string    `json:"type"`
 	Custodian  string    `json:"custodian"`
-	Location   string    `json:"location"`
+	LocationID *string   `json:"location_id"`
 	Status     string    `json:"status"`
 	ReceivedAt time.Time `json:"received_at"`
 }
@@ -38,7 +42,7 @@ func toSampleResponse(s sample.Sample) SampleResponse {
 		Name:       s.Name,
 		Type:       string(s.Type),
 		Custodian:  s.Custodian,
-		Location:   s.Location,
+		LocationID: s.LocationID,
 		Status:     string(s.Status),
 		ReceivedAt: s.ReceivedAt,
 	}

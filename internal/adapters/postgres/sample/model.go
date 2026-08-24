@@ -7,7 +7,7 @@ type Model struct {
 	Name       string
 	Type       string
 	Custodian  string
-	Location   string
+	LocationID *string
 	Status     string
 	ReceivedAt time.Time
 }

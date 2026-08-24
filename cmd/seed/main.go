@@ -16,6 +16,7 @@ import (
 	postgresequipment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/equipment"
 	postgresidgen "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/idgen"
 	postgresinventory "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/inventory"
+	postgreslocation "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/location"
 	postgresnotification "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/notification"
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
 	postgrestestresult "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/testresult"
@@ -25,6 +26,7 @@ import (
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
 	applicationinventory "github.com/efangly/thanes-lims-backend/internal/application/inventory"
+	applicationlocation "github.com/efangly/thanes-lims-backend/internal/application/location"
 	applicationnotification "github.com/efangly/thanes-lims-backend/internal/application/notification"
 	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	applicationsample "github.com/efangly/thanes-lims-backend/internal/application/sample"
@@ -90,9 +92,12 @@ func main() {
 
 	users := seedUsers(ctx, userRepo)
 
+	locationRepo := postgreslocation.New(gdb)
+	leaves := seedLocations(ctx, locationRepo, idgen)
+
 	sampleRepo := postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
-	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, idgen, users)
+	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, locationRepo, idgen, users, leaves)
 
 	testResultRepo := postgrestestresult.New(gdb)
 	seedTestResults(ctx, testResultRepo, sampleRepo, cocRepo, idgen, samples, users, notifier)
@@ -155,16 +160,15 @@ func seedUsers(ctx context.Context, users *postgresuser.Repository) map[string]d
 var sampleCustodians = []string{"สมชาย ใจดี", "วิภา สายใจ", "ประยุทธ์ แสงทอง", "อรทัย พงษ์ศรี"}
 
 var sampleTypeSpecs = []struct {
-	typ      sample.Type
-	name     string
-	location string
+	typ  sample.Type
+	name string
 }{
-	{sample.TypeBlood, "เลือดผู้ป่วย OPD", "Fridge-A / R2-04"},
-	{sample.TypeUrine, "ปัสสาวะผู้ป่วย", "Shelf-C / R1-02"},
-	{sample.TypeWater, "ตัวอย่างน้ำดื่มบรรจุขวด", "Shelf-B / R1-01"},
-	{sample.TypeTissue, "ชิ้นเนื้อตรวจพยาธิวิทยา", "Freezer-1 / R3-01"},
-	{sample.TypeFood, "ตัวอย่างอาหารแปรรูป", "Shelf-D / R2-01"},
-	{sample.TypeSerum, "ซีรัมผู้ป่วย", "Fridge-A / R2-05"},
+	{sample.TypeBlood, "เลือดผู้ป่วย OPD"},
+	{sample.TypeUrine, "ปัสสาวะผู้ป่วย"},
+	{sample.TypeWater, "ตัวอย่างน้ำดื่มบรรจุขวด"},
+	{sample.TypeTissue, "ชิ้นเนื้อตรวจพยาธิวิทยา"},
+	{sample.TypeFood, "ตัวอย่างอาหารแปรรูป"},
+	{sample.TypeSerum, "ซีรัมผู้ป่วย"},
 }
 
 // seedSamples creates 40 samples cycling through type/custodian/location,
@@ -174,9 +178,52 @@ var sampleTypeSpecs = []struct {
 // A handful are left "pending" with a backdated received_at (via direct SQL,
 // since CreateSample always stamps time.Now()) to demo "overdue" queries,
 // mirroring the Oracle POC's demo scenario #1.
-func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, idgen *postgresidgen.Adapter, users map[string]domainuser.User) []sample.Sample {
+// seedLocations builds the storage Location tree (Cabinet > Shelf > Slot)
+// via the same "generate children" use case the real API exposes, and
+// returns the flat list of leaf Slot IDs for seedSamples to assign Samples
+// into. 5 cabinets x 3 shelves x 5 slots = 75 leaves, comfortably more than
+// the 40 seeded Samples so no two Samples ever share a leaf.
+func seedLocations(ctx context.Context, locations *postgreslocation.Repository, idgen *postgresidgen.Adapter) []string {
+	createCabinet := applicationlocation.NewCreateCabinetUseCase(locations, idgen)
+	generateChildren := applicationlocation.NewGenerateChildrenUseCase(locations, idgen)
+
+	cabinetNames := []string{"Fridge-A", "Freezer-1", "Shelf-B", "Shelf-C", "Shelf-D"}
+
+	var leaves []string
+	for _, name := range cabinetNames {
+		cabinet, err := createCabinet.Execute(ctx, applicationlocation.CreateCabinetInput{Name: name})
+		if err != nil {
+			log.Fatalf("seed location cabinet %s: %v", name, err)
+		}
+
+		shelves, err := generateChildren.Execute(ctx, applicationlocation.GenerateChildrenInput{
+			ParentID: cabinet.ID, Prefix: "Shelf", Count: 3,
+		})
+		if err != nil {
+			log.Fatalf("seed location shelves for %s: %v", name, err)
+		}
+
+		for _, shelf := range shelves {
+			slots, err := generateChildren.Execute(ctx, applicationlocation.GenerateChildrenInput{
+				ParentID: shelf.ID, Prefix: "Slot", Count: 5,
+			})
+			if err != nil {
+				log.Fatalf("seed location slots for %s: %v", shelf.Name, err)
+			}
+			for _, slot := range slots {
+				leaves = append(leaves, slot.ID)
+			}
+		}
+	}
+
+	log.Printf("seed: created %d cabinets, %d leaf slots", len(cabinetNames), len(leaves))
+	return leaves
+}
+
+func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, locations *postgreslocation.Repository, idgen *postgresidgen.Adapter, users map[string]domainuser.User, leaves []string) []sample.Sample {
 	create := applicationsample.NewCreateSampleUseCase(samples, coc, idgen)
 	updateStatus := applicationsample.NewUpdateSampleStatusUseCase(samples, coc)
+	assignLocation := applicationsample.NewAssignLocationUseCase(samples, locations)
 
 	const total = 40
 	overdueDays := []int{15, 14, 10, 7} // applied in order to the pending samples below
@@ -191,10 +238,17 @@ func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repo
 			Name:      fmt.Sprintf("%s #%02d", spec.name, i+1),
 			Type:      spec.typ,
 			Custodian: custodian,
-			Location:  spec.location,
 		})
 		if err != nil {
 			log.Fatalf("seed sample %d: %v", i, err)
+		}
+
+		// Each sample gets its own leaf Slot - len(leaves) (75) comfortably
+		// exceeds total (40), so no two samples ever contend for the same
+		// leaf regardless of the status transitions applied below.
+		created, err = assignLocation.Execute(ctx, created.ID, leaves[i%len(leaves)])
+		if err != nil {
+			log.Fatalf("seed sample %d: assign location: %v", i, err)
 		}
 
 		switch i % 10 {
@@ -516,7 +570,7 @@ func wipe(gdb *gorm.DB) error {
 		"doc_history", "documents",
 		"purchase_orders", "inventory_items",
 		"equipment",
-		"test_results", "coc_steps", "samples",
+		"test_results", "coc_steps", "samples", "locations",
 		"refresh_tokens", "users",
 		"audit_logs", "id_sequences",
 	}

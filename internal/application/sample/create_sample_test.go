@@ -31,7 +31,7 @@ func TestCreateSampleUseCase_GeneratesIDAndInitialCoCStep(t *testing.T) {
 
 	uc := applicationsample.NewCreateSampleUseCase(samples, coc, idgen)
 	created, err := uc.Execute(context.Background(), applicationsample.CreateSampleInput{
-		Name: "Blood sample", Type: sample.TypeBlood, Custodian: "somchai", Location: "Fridge-A",
+		Name: "Blood sample", Type: sample.TypeBlood, Custodian: "somchai",
 	})
 
 	assert.NoError(t, err)
@@ -45,7 +45,7 @@ func TestCreateSampleUseCase_InvalidType(t *testing.T) {
 
 	uc := applicationsample.NewCreateSampleUseCase(samples, coc, idgen)
 	_, err := uc.Execute(context.Background(), applicationsample.CreateSampleInput{
-		Name: "Bad", Type: sample.Type("bogus"), Custodian: "x", Location: "y",
+		Name: "Bad", Type: sample.Type("bogus"), Custodian: "x",
 	})
 
 	assert.ErrorIs(t, err, shared.ErrValidation)

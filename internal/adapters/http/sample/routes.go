@@ -16,6 +16,7 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	samples.Get("/", h.List)
 	samples.Get("/:id", h.Get)
 	samples.Patch("/:id/status", h.UpdateStatus)
+	samples.Patch("/:id/location", h.AssignLocation)
 	samples.Get("/:id/coc", h.ListCoC)
 	samples.Post("/:id/coc", h.AppendCoC)
 }

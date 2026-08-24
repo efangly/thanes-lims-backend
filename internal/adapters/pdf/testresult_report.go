@@ -11,9 +11,10 @@ import (
 // needs; application/testresult.ReportData maps onto it 1:1 so this package
 // stays free of an application-layer import.
 type TestResultReportData struct {
-	Result   testresult.TestResult
-	Sample   domainsample.Sample
-	CoCSteps []domainsample.CoCStep
+	Result           testresult.TestResult
+	Sample           domainsample.Sample
+	CoCSteps         []domainsample.CoCStep
+	LocationFullPath string
 }
 
 func testResultStatusLabel(s testresult.Status) string {
@@ -78,7 +79,7 @@ func TestResultReport(data TestResultReportData) ([]byte, error) {
 	labelValue("ชื่อตัวอย่าง:", data.Sample.Name)
 	labelValue("ประเภท:", string(data.Sample.Type))
 	labelValue("ผู้ดูแล:", data.Sample.Custodian)
-	labelValue("สถานที่:", data.Sample.Location)
+	labelValue("สถานที่:", data.LocationFullPath)
 	labelValue("รับเข้าเมื่อ:", data.Sample.ReceivedAt.Format("2006-01-02 15:04"))
 	pdf.Ln(4)
 

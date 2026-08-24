@@ -7,6 +7,7 @@ import (
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	httpequipment "github.com/efangly/thanes-lims-backend/internal/adapters/http/equipment"
 	httpinventory "github.com/efangly/thanes-lims-backend/internal/adapters/http/inventory"
+	httplocation "github.com/efangly/thanes-lims-backend/internal/adapters/http/location"
 	httpnotification "github.com/efangly/thanes-lims-backend/internal/adapters/http/notification"
 	httppurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/http/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
@@ -21,6 +22,7 @@ import (
 	postgresequipment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/equipment"
 	postgresidgen "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/idgen"
 	postgresinventory "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/inventory"
+	postgreslocation "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/location"
 	postgresnotification "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/notification"
 	postgrespurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/purchaseorder"
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
@@ -31,6 +33,7 @@ import (
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
 	applicationinventory "github.com/efangly/thanes-lims-backend/internal/application/inventory"
+	applicationlocation "github.com/efangly/thanes-lims-backend/internal/application/location"
 	applicationnotification "github.com/efangly/thanes-lims-backend/internal/application/notification"
 	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	applicationsample "github.com/efangly/thanes-lims-backend/internal/application/sample"
@@ -73,6 +76,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	idgen := postgresidgen.New(gdb)
 	sampleRepo := postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
+	locationRepo := postgreslocation.New(gdb)
 
 	sampleHandler := httpsample.NewHandler(
 		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, idgen),
@@ -81,8 +85,18 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationsample.NewUpdateSampleStatusUseCase(sampleRepo, cocRepo),
 		applicationsample.NewListCoCStepsUseCase(cocRepo),
 		applicationsample.NewAppendCoCStepUseCase(cocRepo),
+		applicationsample.NewAssignLocationUseCase(sampleRepo, locationRepo),
 	)
 	httpsample.RegisterRoutes(v1, sampleHandler, tokens)
+
+	locationHandler := httplocation.NewHandler(
+		applicationlocation.NewCreateCabinetUseCase(locationRepo, idgen),
+		applicationlocation.NewGenerateChildrenUseCase(locationRepo, idgen),
+		applicationlocation.NewListChildrenUseCase(locationRepo),
+		applicationlocation.NewGetFullPathUseCase(locationRepo),
+		applicationlocation.NewDeleteLocationUseCase(locationRepo, sampleRepo),
+	)
+	httplocation.RegisterRoutes(v1, locationHandler, tokens)
 
 	notificationRepo := postgresnotification.New(gdb)
 	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
@@ -94,7 +108,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationtestresult.NewApproveResultUseCase(testResultRepo, cocRepo, notifier),
 		applicationtestresult.NewListTestResultsUseCase(testResultRepo),
 		applicationtestresult.NewGetTestResultUseCase(testResultRepo),
-		applicationtestresult.NewGenerateReportUseCase(testResultRepo, sampleRepo, cocRepo),
+		applicationtestresult.NewGenerateReportUseCase(testResultRepo, sampleRepo, cocRepo, locationRepo),
 	)
 	httptestresult.RegisterRoutes(v1, testResultHandler, tokens)
 

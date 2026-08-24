@@ -37,12 +37,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	locationID := "N/A"
 	want := sample.Sample{
 		ID:         fmt.Sprintf("SMP-TEST-%d", time.Now().Unix()),
 		Name:       "oracle-insert-test smoke test",
 		Type:       sample.TypeBlood,
 		Custodian:  "cmd/oracle-insert-test",
-		Location:   "N/A",
+		LocationID: &locationID,
 		Status:     sample.StatusPending,
 		ReceivedAt: time.Now().Truncate(time.Second),
 	}
@@ -57,8 +58,10 @@ func main() {
 		log.Fatalf("find by id: %v", err)
 	}
 
+	locationMismatch := (got.LocationID == nil) != (want.LocationID == nil) ||
+		(got.LocationID != nil && *got.LocationID != *want.LocationID)
 	if got.ID != want.ID || got.Name != want.Name || got.Type != want.Type ||
-		got.Custodian != want.Custodian || got.Location != want.Location ||
+		got.Custodian != want.Custodian || locationMismatch ||
 		got.Status != want.Status || !got.ReceivedAt.Equal(want.ReceivedAt) {
 		log.Fatalf("read-back mismatch: want %+v, got %+v", want, got)
 	}

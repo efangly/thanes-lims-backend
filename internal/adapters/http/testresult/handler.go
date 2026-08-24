@@ -198,9 +198,10 @@ func (h *Handler) GetReport(c fiber.Ctx) error {
 	}
 
 	body, err := pdf.TestResultReport(pdf.TestResultReportData{
-		Result:   data.Result,
-		Sample:   data.Sample,
-		CoCSteps: data.CoCSteps,
+		Result:           data.Result,
+		Sample:           data.Sample,
+		CoCSteps:         data.CoCSteps,
+		LocationFullPath: data.LocationFullPath,
 	})
 	if err != nil {
 		return err

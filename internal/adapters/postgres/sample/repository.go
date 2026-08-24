@@ -24,7 +24,7 @@ func toDomain(m Model) sample.Sample {
 		Name:       m.Name,
 		Type:       sample.Type(m.Type),
 		Custodian:  m.Custodian,
-		Location:   m.Location,
+		LocationID: m.LocationID,
 		Status:     sample.Status(m.Status),
 		ReceivedAt: m.ReceivedAt,
 	}
@@ -36,7 +36,7 @@ func toModel(s sample.Sample) Model {
 		Name:       s.Name,
 		Type:       string(s.Type),
 		Custodian:  s.Custodian,
-		Location:   s.Location,
+		LocationID: s.LocationID,
 		Status:     string(s.Status),
 		ReceivedAt: s.ReceivedAt,
 	}
@@ -88,4 +88,30 @@ func (r *Repository) UpdateStatus(ctx context.Context, s sample.Sample) (sample.
 		return sample.Sample{}, err
 	}
 	return r.FindByID(ctx, s.ID)
+}
+
+func (r *Repository) UpdateLocation(ctx context.Context, sampleID string, locationID *string) (sample.Sample, error) {
+	if err := r.db.WithContext(ctx).Model(&Model{}).Where("id = ?", sampleID).Update("location_id", locationID).Error; err != nil {
+		return sample.Sample{}, err
+	}
+	return r.FindByID(ctx, sampleID)
+}
+
+func (r *Repository) ExistsActiveByLocation(ctx context.Context, locationID string) (bool, error) {
+	occupying := make([]string, len(sample.OccupyingStatuses))
+	for i, s := range sample.OccupyingStatuses {
+		occupying[i] = string(s)
+	}
+
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Model{}).
+		Where("location_id = ? AND status IN ?", locationID, occupying).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *Repository) ExistsByLocation(ctx context.Context, locationID string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Model{}).Where("location_id = ?", locationID).Count(&count).Error
+	return count > 0, err
 }

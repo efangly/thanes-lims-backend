@@ -12,12 +12,13 @@ import (
 )
 
 type Handler struct {
-	create       *applicationsample.CreateSampleUseCase
-	list         *applicationsample.ListSamplesUseCase
-	get          *applicationsample.GetSampleUseCase
-	updateStatus *applicationsample.UpdateSampleStatusUseCase
-	listCoC      *applicationsample.ListCoCStepsUseCase
-	appendCoC    *applicationsample.AppendCoCStepUseCase
+	create         *applicationsample.CreateSampleUseCase
+	list           *applicationsample.ListSamplesUseCase
+	get            *applicationsample.GetSampleUseCase
+	updateStatus   *applicationsample.UpdateSampleStatusUseCase
+	listCoC        *applicationsample.ListCoCStepsUseCase
+	appendCoC      *applicationsample.AppendCoCStepUseCase
+	assignLocation *applicationsample.AssignLocationUseCase
 }
 
 func NewHandler(
@@ -27,8 +28,9 @@ func NewHandler(
 	updateStatus *applicationsample.UpdateSampleStatusUseCase,
 	listCoC *applicationsample.ListCoCStepsUseCase,
 	appendCoC *applicationsample.AppendCoCStepUseCase,
+	assignLocation *applicationsample.AssignLocationUseCase,
 ) *Handler {
-	return &Handler{create: create, list: list, get: get, updateStatus: updateStatus, listCoC: listCoC, appendCoC: appendCoC}
+	return &Handler{create: create, list: list, get: get, updateStatus: updateStatus, listCoC: listCoC, appendCoC: appendCoC, assignLocation: assignLocation}
 }
 
 // Create godoc
@@ -54,10 +56,10 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	}
 
 	s, err := h.create.Execute(c.Context(), applicationsample.CreateSampleInput{
-		Name:      req.Name,
-		Type:      sample.Type(req.Type),
-		Custodian: req.Custodian,
-		Location:  req.Location,
+		Name:       req.Name,
+		Type:       sample.Type(req.Type),
+		Custodian:  req.Custodian,
+		LocationID: req.LocationID,
 	})
 	if err != nil {
 		return err
@@ -155,6 +157,40 @@ func (h *Handler) UpdateStatus(c fiber.Ctx) error {
 		ActorRole: role,
 		ActorName: name,
 	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toSampleResponse(s))
+}
+
+// AssignLocation godoc
+//
+//	@Summary		กำหนดตำแหน่งจัดเก็บ (put-away) ของตัวอย่าง
+//	@Description	ผูก sample เข้ากับ leaf Location - ต้องเป็น Location ที่ไม่มีลูก และไม่มี sample อื่นที่ยัง active ครองอยู่
+//	@Tags			samples
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Sample ID"
+//	@Param			request	body		AssignLocationRequest	true	"Location ID"
+//	@Success		200		{object}	response.Envelope{data=SampleResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		409		{object}	response.Envelope
+//	@Router			/samples/{id}/location [patch]
+func (h *Handler) AssignLocation(c fiber.Ctx) error {
+	id := c.Params("id")
+
+	var req AssignLocationRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	s, err := h.assignLocation.Execute(c.Context(), id, req.LocationID)
 	if err != nil {
 		return err
 	}

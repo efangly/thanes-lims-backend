@@ -22,10 +22,10 @@ func NewCreateSampleUseCase(samples portsample.SampleRepository, coc portsample.
 }
 
 type CreateSampleInput struct {
-	Name      string
-	Type      sample.Type
-	Custodian string
-	Location  string
+	Name       string
+	Type       sample.Type
+	Custodian  string
+	LocationID *string
 }
 
 // Execute generates the human-readable SMP-{BuddhistYear}-{seq5} id and
@@ -42,12 +42,15 @@ func (uc *CreateSampleUseCase) Execute(ctx context.Context, in CreateSampleInput
 		return sample.Sample{}, err
 	}
 
+	// LocationID is optional at intake (registration happens before
+	// put-away); leaf-only + one-active-sample-per-location validation is
+	// enforced by the dedicated assign-location use case, not here.
 	s := sample.Sample{
 		ID:         fmt.Sprintf("SMP-%d-%05d", year, seq),
 		Name:       in.Name,
 		Type:       in.Type,
 		Custodian:  in.Custodian,
-		Location:   in.Location,
+		LocationID: in.LocationID,
 		Status:     sample.StatusPending,
 		ReceivedAt: now,
 	}

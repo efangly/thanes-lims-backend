@@ -25,7 +25,6 @@ func TestSampleRepository_CRUD(t *testing.T) {
 		Name:      "Blood panel A",
 		Type:      domainsample.TypeBlood,
 		Custodian: "Somchai",
-		Location:  "Lab A",
 		Status:    domainsample.StatusPending,
 	})
 	require.NoError(t, err)

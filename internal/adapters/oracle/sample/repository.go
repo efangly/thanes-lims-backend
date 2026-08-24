@@ -27,8 +27,12 @@ VALUES (:1, :2, :3, :4, :5, :6, :7)
 `
 
 func (r *Repository) Insert(ctx context.Context, s sample.Sample) error {
+	var location string
+	if s.LocationID != nil {
+		location = *s.LocationID
+	}
 	_, err := r.db.ExecContext(ctx, insertSQL,
-		s.ID, s.Name, string(s.Type), s.Custodian, s.Location, string(s.Status), s.ReceivedAt,
+		s.ID, s.Name, string(s.Type), s.Custodian, location, string(s.Status), s.ReceivedAt,
 	)
 	return err
 }
@@ -46,8 +50,9 @@ func (r *Repository) FindByID(ctx context.Context, id string) (sample.Sample, er
 		status     string
 	)
 
+	var location string
 	row := r.db.QueryRowContext(ctx, selectByIDSQL, id)
-	err := row.Scan(&s.ID, &s.Name, &sampleType, &s.Custodian, &s.Location, &status, &s.ReceivedAt)
+	err := row.Scan(&s.ID, &s.Name, &sampleType, &s.Custodian, &location, &status, &s.ReceivedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return sample.Sample{}, shared.ErrNotFound
 	}
@@ -57,5 +62,8 @@ func (r *Repository) FindByID(ctx context.Context, id string) (sample.Sample, er
 
 	s.Type = sample.Type(sampleType)
 	s.Status = sample.Status(status)
+	if location != "" {
+		s.LocationID = &location
+	}
 	return s, nil
 }
