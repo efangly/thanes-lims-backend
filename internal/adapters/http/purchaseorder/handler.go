@@ -79,12 +79,19 @@ func (h *Handler) Get(c fiber.Ctx) error {
 //	@Router			/purchase-orders/{id}/approve [patch]
 func (h *Handler) Approve(c fiber.Ctx) error {
 	role := fiber.Locals[domainuser.Role](c, middleware.LocalsRole)
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	po, err := h.approve.Execute(c.Context(), applicationpurchaseorder.ApprovePOInput{
-		ID: c.Params("id"), ActorRole: role,
+		ID: id, ActorRole: role,
 	})
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, po))
 	return response.OK(c, toResponse(po))
 }
 
@@ -102,9 +109,16 @@ func (h *Handler) Approve(c fiber.Ctx) error {
 //	@Failure		409	{object}	response.Envelope
 //	@Router			/purchase-orders/{id}/receive [patch]
 func (h *Handler) MarkReceived(c fiber.Ctx) error {
-	po, err := h.markReceived.Execute(c.Context(), c.Params("id"))
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
 	if err != nil {
 		return err
 	}
+
+	po, err := h.markReceived.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, po))
 	return response.OK(c, toResponse(po))
 }

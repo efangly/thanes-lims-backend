@@ -34,12 +34,12 @@ func (r *Repository) Log(ctx context.Context, entry audit.AuditLog) error {
 }
 
 func (r *Repository) List(ctx context.Context, filter portaudit.ListFilter) ([]audit.AuditLog, error) {
-	q := r.db.WithContext(ctx).Order("created_at DESC")
-	if filter.From != nil {
-		q = q.Where("created_at >= ?", *filter.From)
+	q := applyFilter(r.db.WithContext(ctx), filter).Order("created_at DESC")
+	if filter.Limit > 0 {
+		q = q.Limit(filter.Limit)
 	}
-	if filter.To != nil {
-		q = q.Where("created_at <= ?", *filter.To)
+	if filter.Offset > 0 {
+		q = q.Offset(filter.Offset)
 	}
 
 	var models []Model
@@ -63,4 +63,29 @@ func (r *Repository) List(ctx context.Context, filter portaudit.ListFilter) ([]a
 		}
 	}
 	return out, nil
+}
+
+func (r *Repository) Count(ctx context.Context, filter portaudit.ListFilter) (int64, error) {
+	var count int64
+	err := applyFilter(r.db.WithContext(ctx), filter).Model(&Model{}).Count(&count).Error
+	return count, err
+}
+
+func applyFilter(q *gorm.DB, filter portaudit.ListFilter) *gorm.DB {
+	if filter.From != nil {
+		q = q.Where("created_at >= ?", *filter.From)
+	}
+	if filter.To != nil {
+		q = q.Where("created_at <= ?", *filter.To)
+	}
+	if filter.ActorID != nil {
+		q = q.Where("actor_id = ?", *filter.ActorID)
+	}
+	if filter.Resource != "" {
+		q = q.Where("resource = ?", filter.Resource)
+	}
+	if filter.Method != "" {
+		q = q.Where("method = ?", filter.Method)
+	}
+	return q
 }

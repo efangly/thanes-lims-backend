@@ -7,28 +7,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRole_Can(t *testing.T) {
-	cases := []struct {
-		role domainuser.Role
-		perm domainuser.Permission
-		want bool
-	}{
-		{domainuser.RoleAdmin, domainuser.PermDelete, true},
-		{domainuser.RoleAdmin, domainuser.PermApprove, true},
-		{domainuser.RoleQA, domainuser.PermApprove, true},
-		{domainuser.RoleQA, domainuser.PermDelete, false},
-		{domainuser.RoleScientist, domainuser.PermEdit, true},
-		{domainuser.RoleScientist, domainuser.PermApprove, false},
-		{domainuser.RoleGeneral, domainuser.PermView, true},
-		{domainuser.RoleGeneral, domainuser.PermEdit, false},
-	}
-
-	for _, tc := range cases {
-		assert.Equal(t, tc.want, tc.role.Can(tc.perm), "role=%s perm=%s", tc.role, tc.perm)
-	}
-}
+// TestRole_Can and its Permission cases were removed along with the static
+// Can() matrix (see ADR 0002 - permission truth now lives in the normalized
+// roles/permissions/role_permissions tables, not a Go-code matrix).
 
 func TestRole_Valid(t *testing.T) {
 	assert.True(t, domainuser.RoleAdmin.Valid())
+	assert.True(t, domainuser.RoleLabManager.Valid())
 	assert.False(t, domainuser.Role("bogus").Valid())
+}
+
+func TestRole_DisplayName(t *testing.T) {
+	assert.Equal(t, "Admin", domainuser.RoleAdmin.DisplayName())
+	assert.Equal(t, "Lab Manager", domainuser.RoleLabManager.DisplayName())
+	assert.Equal(t, "QA", domainuser.RoleQA.DisplayName())
+	assert.Equal(t, "Scientist", domainuser.RoleScientist.DisplayName())
+	assert.Equal(t, "General", domainuser.RoleGeneral.DisplayName())
 }

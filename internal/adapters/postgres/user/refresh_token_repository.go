@@ -19,22 +19,30 @@ func NewRefreshTokenRepository(db *gorm.DB) *RefreshTokenRepository {
 
 func rtToDomain(m RefreshTokenModel) user.RefreshToken {
 	return user.RefreshToken{
-		ID:        m.ID,
-		UserID:    m.UserID,
-		TokenHash: m.TokenHash,
-		ExpiresAt: m.ExpiresAt,
-		Revoked:   m.Revoked,
-		CreatedAt: m.CreatedAt,
+		ID:              m.ID,
+		UserID:          m.UserID,
+		FamilyID:        m.FamilyID,
+		FamilyCreatedAt: m.FamilyCreatedAt,
+		TokenHash:       m.TokenHash,
+		ExpiresAt:       m.ExpiresAt,
+		Revoked:         m.Revoked,
+		CreatedAt:       m.CreatedAt,
+		UserAgent:       m.UserAgent,
+		IPAddress:       m.IPAddress,
 	}
 }
 
 func (r *RefreshTokenRepository) Create(ctx context.Context, rt user.RefreshToken) (user.RefreshToken, error) {
 	m := RefreshTokenModel{
-		UserID:    rt.UserID,
-		TokenHash: rt.TokenHash,
-		ExpiresAt: rt.ExpiresAt,
-		Revoked:   rt.Revoked,
-		CreatedAt: rt.CreatedAt,
+		UserID:          rt.UserID,
+		FamilyID:        rt.FamilyID,
+		FamilyCreatedAt: rt.FamilyCreatedAt,
+		TokenHash:       rt.TokenHash,
+		ExpiresAt:       rt.ExpiresAt,
+		Revoked:         rt.Revoked,
+		CreatedAt:       rt.CreatedAt,
+		UserAgent:       rt.UserAgent,
+		IPAddress:       rt.IPAddress,
 	}
 	if err := r.db.WithContext(ctx).Create(&m).Error; err != nil {
 		return user.RefreshToken{}, err

@@ -135,14 +135,18 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 // Computed fresh on every call rather than stored - see
 // docs/adr/0001-self-referencing-tree-for-storage-location.md.
 func (r *Repository) FullPath(ctx context.Context, id string) (string, error) {
+	// Raw SQL bypasses GORM's automatic deleted_at IS NULL scoping, so both
+	// legs of the recursive CTE filter Retired rows explicitly (see ADR
+	// 0003) - a Full Path must never resolve through a Retired Location.
 	var names []string
 	err := r.db.WithContext(ctx).Raw(`
 		WITH RECURSIVE ancestors AS (
-			SELECT id, parent_id, name, 0 AS depth FROM locations WHERE id = ?
+			SELECT id, parent_id, name, 0 AS depth FROM locations WHERE id = ? AND deleted_at IS NULL
 			UNION ALL
 			SELECT l.id, l.parent_id, l.name, a.depth + 1
 			FROM locations l
 			JOIN ancestors a ON l.id = a.parent_id
+			WHERE l.deleted_at IS NULL
 		)
 		SELECT name FROM ancestors ORDER BY depth DESC
 	`, id).Scan(&names).Error

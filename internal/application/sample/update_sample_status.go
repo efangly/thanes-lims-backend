@@ -28,7 +28,10 @@ type UpdateSampleStatusInput struct {
 // Execute enforces RBAC (edit permission) and the Sample state machine, then
 // appends the state-machine-generated CoC step alongside the status update.
 func (uc *UpdateSampleStatusUseCase) Execute(ctx context.Context, in UpdateSampleStatusInput) (sample.Sample, error) {
-	if !in.ActorRole.Can(domainuser.PermEdit) {
+	// Edit permission: same Admin/QA/Scientist set the removed
+	// Can(PermEdit) matrix granted (see ADR 0002 - wiring this to the
+	// normalized RBAC model is a later phase, out of scope here).
+	if in.ActorRole != domainuser.RoleAdmin && in.ActorRole != domainuser.RoleQA && in.ActorRole != domainuser.RoleScientist {
 		return sample.Sample{}, shared.ErrForbidden
 	}
 

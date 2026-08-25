@@ -1,6 +1,7 @@
 package location
 
 import (
+	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationlocation "github.com/efangly/thanes-lims-backend/internal/application/location"
@@ -58,6 +59,7 @@ func (h *Handler) CreateCabinet(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(l))
 	return response.Created(c, toLocationResponse(l))
 }
 
@@ -170,5 +172,6 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	if err := h.deleteLocation.Execute(c.Context(), id); err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.DeletedMarker())
 	return c.SendStatus(fiber.StatusNoContent)
 }

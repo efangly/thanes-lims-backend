@@ -64,6 +64,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(s))
 	return response.Created(c, toSampleResponse(s))
 }
 
@@ -151,6 +152,11 @@ func (h *Handler) UpdateStatus(c fiber.Ctx) error {
 	role := fiber.Locals[domainuser.Role](c, middleware.LocalsRole)
 	name := fiber.Locals[string](c, middleware.LocalsName)
 
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	s, err := h.updateStatus.Execute(c.Context(), applicationsample.UpdateSampleStatusInput{
 		SampleID:  id,
 		NewStatus: sample.Status(req.Status),
@@ -160,6 +166,7 @@ func (h *Handler) UpdateStatus(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, s))
 	return response.OK(c, toSampleResponse(s))
 }
 
@@ -190,10 +197,16 @@ func (h *Handler) AssignLocation(c fiber.Ctx) error {
 		return err
 	}
 
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	s, err := h.assignLocation.Execute(c.Context(), id, req.LocationID)
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, s))
 	return response.OK(c, toSampleResponse(s))
 }
 
@@ -257,5 +270,7 @@ func (h *Handler) AppendCoC(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditResource, "sample_coc_step")
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(step))
 	return response.Created(c, toCoCStepResponse(step))
 }

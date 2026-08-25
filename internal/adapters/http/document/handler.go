@@ -75,6 +75,7 @@ func (h *Handler) Upload(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(d))
 	return response.Created(c, toResponse(d))
 }
 
@@ -166,8 +167,14 @@ func (h *Handler) NewVersion(c fiber.Ctx) error {
 
 	uploaderName := fiber.Locals[string](c, middleware.LocalsName)
 
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	d, err := h.newVersion.Execute(c.Context(), applicationdocument.CreateNewVersionInput{
-		DocumentID:  c.Params("id"),
+		DocumentID:  id,
 		Filename:    fh.Filename,
 		ContentType: fh.Header.Get("Content-Type"),
 		Size:        fh.Size,
@@ -178,6 +185,7 @@ func (h *Handler) NewVersion(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, d))
 	return response.Created(c, toResponse(d))
 }
 
@@ -226,9 +234,16 @@ func (h *Handler) SetLock(c fiber.Ctx) error {
 	}
 
 	role := fiber.Locals[domainuser.Role](c, middleware.LocalsRole)
-	d, err := h.setLock.Execute(c.Context(), c.Params("id"), req.Locked, role)
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
 	if err != nil {
 		return err
 	}
+
+	d, err := h.setLock.Execute(c.Context(), id, req.Locked, role)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, d))
 	return response.OK(c, toResponse(d))
 }

@@ -21,6 +21,16 @@ type Config struct {
 	JWTAccessTTL     time.Duration `env:"JWT_ACCESS_TTL" envDefault:"15m"`
 	JWTRefreshTTL    time.Duration `env:"JWT_REFRESH_TTL" envDefault:"168h"`
 
+	// CookieSecure controls the Secure attribute on the Refresh Cookie - set
+	// to false only for local http:// development (see ADR 0004).
+	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`
+	// CORSAllowOrigins lists exact origins allowed to make credentialed
+	// cross-origin requests, comma-separated (e.g. when the frontend dev
+	// server runs on a different port than the API). Leave empty in
+	// same-origin production deployments - CORS doesn't apply to same-origin
+	// requests at all, so no config is needed there (see ADR 0004).
+	CORSAllowOrigins []string `env:"CORS_ALLOW_ORIGINS" envSeparator:","`
+
 	MinioEndpoint  string `env:"MINIO_ENDPOINT,required"`
 	MinioAccessKey string `env:"MINIO_ACCESS_KEY,required"`
 	MinioSecretKey string `env:"MINIO_SECRET_KEY,required"`

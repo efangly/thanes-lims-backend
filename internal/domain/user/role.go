@@ -1,48 +1,48 @@
 package user
 
-// Role is the system-wide RBAC role. Permissions are global-per-role (not
-// module-scoped) - every module checks the same matrix below.
+// Role is the system-wide RBAC role assigned to a User (exactly one Role
+// per User). Permission truth no longer lives here as a static matrix - it
+// lives in the normalized roles/permissions/role_permissions tables (see
+// internal/domain/rbac and ADR 0002). Role is kept as this fixed enum
+// because the JWT "role" claim still keys off it, and it's the type used to
+// persist/read users.role_id.
 type Role string
 
 const (
-	RoleAdmin     Role = "admin"
-	RoleQA        Role = "qa"
-	RoleScientist Role = "scientist"
-	RoleGeneral   Role = "general"
+	RoleAdmin      Role = "admin"
+	RoleLabManager Role = "lab_manager"
+	RoleQA         Role = "qa"
+	RoleScientist  Role = "scientist"
+	RoleGeneral    Role = "general"
 )
 
 func (r Role) Valid() bool {
 	switch r {
-	case RoleAdmin, RoleQA, RoleScientist, RoleGeneral:
+	case RoleAdmin, RoleLabManager, RoleQA, RoleScientist, RoleGeneral:
 		return true
 	default:
 		return false
 	}
 }
 
-// Permission mirrors the frontend's RBAC demo matrix (ดู/แก้ไข/ลบ/อนุมัติ).
-type Permission string
-
-const (
-	PermView    Permission = "view"
-	PermEdit    Permission = "edit"
-	PermDelete  Permission = "delete"
-	PermApprove Permission = "approve"
-)
-
-// permissionMatrix is the static global-per-role permission table, ported
-// directly from the frontend's manage-access.tsx demo matrix.
-var permissionMatrix = map[Role]map[Permission]bool{
-	RoleAdmin:     {PermView: true, PermEdit: true, PermDelete: true, PermApprove: true},
-	RoleQA:        {PermView: true, PermEdit: true, PermDelete: false, PermApprove: true},
-	RoleScientist: {PermView: true, PermEdit: true, PermDelete: false, PermApprove: false},
-	RoleGeneral:   {PermView: true, PermEdit: false, PermDelete: false, PermApprove: false},
-}
-
-func (r Role) Can(perm Permission) bool {
-	perms, ok := permissionMatrix[r]
-	if !ok {
-		return false
+// DisplayName is the roles.name row this Role corresponds to in the
+// database (see migrations/000018_create_roles_table.up.sql). Used to
+// translate between this Go enum and the normalized RBAC tables - e.g.
+// resolving a User's Permission set at login, or persisting/reading
+// users.role_id.
+func (r Role) DisplayName() string {
+	switch r {
+	case RoleAdmin:
+		return "Admin"
+	case RoleLabManager:
+		return "Lab Manager"
+	case RoleQA:
+		return "QA"
+	case RoleScientist:
+		return "Scientist"
+	case RoleGeneral:
+		return "General"
+	default:
+		return string(r)
 	}
-	return perms[perm]
 }

@@ -3,7 +3,7 @@ package middleware
 import (
 	"strings"
 
-	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
+	"github.com/efangly/thanes-lims-backend/internal/domain/rbac"
 	portuser "github.com/efangly/thanes-lims-backend/internal/ports/user"
 	"github.com/gofiber/fiber/v3"
 )
@@ -14,11 +14,15 @@ const (
 	LocalsUserID localsKey = "auth_user_id"
 	LocalsName   localsKey = "auth_name"
 	LocalsRole   localsKey = "auth_role"
+	// LocalsPermissions holds the caller's JWT-embedded Permission set
+	// (compact "module:action" strings - see ADR 0002) for RequirePermission
+	// to check without a DB call.
+	LocalsPermissions localsKey = "auth_permissions"
 )
 
 // Auth validates the Bearer access token on every route it's mounted on and
 // stores the resulting claims in Locals for downstream handlers/middleware
-// (RequireRole, the audit middleware) to read.
+// (RequirePermission, the audit middleware) to read.
 func Auth(tokens portuser.TokenService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		header := c.Get(fiber.HeaderAuthorization)
@@ -52,32 +56,23 @@ func authenticate(c fiber.Ctx, tokens portuser.TokenService, rawToken string) er
 	c.Locals(LocalsUserID, claims.UserID)
 	c.Locals(LocalsName, claims.Name)
 	c.Locals(LocalsRole, claims.Role)
+	c.Locals(LocalsPermissions, claims.Permissions)
 	return c.Next()
 }
 
-// RequireRole gates a route to a set of roles, checked against the RBAC
-// permission each role needs (global-per-role, not module-scoped).
-func RequireRole(roles ...domainuser.Role) fiber.Handler {
-	allowed := make(map[domainuser.Role]bool, len(roles))
-	for _, r := range roles {
-		allowed[r] = true
-	}
+// RequirePermission gates a route to callers whose JWT-embedded Permission
+// set (resolved from the normalized RBAC tables at login/refresh - see ADR
+// 0002) includes module:action. Checked against Fiber locals only, no DB
+// call per request.
+func RequirePermission(module rbac.Module, action rbac.Action) fiber.Handler {
+	want := string(module) + ":" + string(action)
 	return func(c fiber.Ctx) error {
-		role, _ := c.Locals(LocalsRole).(domainuser.Role)
-		if !allowed[role] {
-			return fiber.NewError(fiber.StatusForbidden, "insufficient role")
+		perms, _ := c.Locals(LocalsPermissions).([]string)
+		for _, p := range perms {
+			if p == want {
+				return c.Next()
+			}
 		}
-		return c.Next()
-	}
-}
-
-// RequirePermission gates a route to roles holding a given permission.
-func RequirePermission(perm domainuser.Permission) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		role, _ := c.Locals(LocalsRole).(domainuser.Role)
-		if !role.Can(perm) {
-			return fiber.NewError(fiber.StatusForbidden, "insufficient permission")
-		}
-		return c.Next()
+		return fiber.NewError(fiber.StatusForbidden, "insufficient permission")
 	}
 }

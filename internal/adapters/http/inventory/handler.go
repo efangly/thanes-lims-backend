@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationinventory "github.com/efangly/thanes-lims-backend/internal/application/inventory"
@@ -60,6 +61,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(item))
 	return response.Created(c, toResponse(item))
 }
 
@@ -127,10 +129,17 @@ func (h *Handler) UpdateQuantity(c fiber.Ctx) error {
 		return err
 	}
 
-	item, err := h.updateQuantity.Execute(c.Context(), c.Params("id"), req.Quantity)
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
 	if err != nil {
 		return err
 	}
+
+	item, err := h.updateQuantity.Execute(c.Context(), id, req.Quantity)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, item))
 	return response.OK(c, toResponse(item))
 }
 
@@ -158,10 +167,17 @@ func (h *Handler) UpdateDefaultVendor(c fiber.Ctx) error {
 		return err
 	}
 
-	item, err := h.updateDefaultVendor.Execute(c.Context(), c.Params("id"), req.Vendor)
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
 	if err != nil {
 		return err
 	}
+
+	item, err := h.updateDefaultVendor.Execute(c.Context(), id, req.Vendor)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, item))
 	return response.OK(c, toResponse(item))
 }
 

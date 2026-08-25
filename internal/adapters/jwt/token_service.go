@@ -32,14 +32,18 @@ type claims struct {
 	UserID int64     `json:"user_id"`
 	Name   string    `json:"name"`
 	Role   user.Role `json:"role"`
+	// Permissions is only set on access tokens - see
+	// ports/user.TokenService.GenerateAccessToken and ADR 0002.
+	Permissions []string `json:"permissions,omitempty"`
 	jwtlib.RegisteredClaims
 }
 
-func (a *Adapter) GenerateAccessToken(u user.User) (string, error) {
+func (a *Adapter) GenerateAccessToken(u user.User, permissions []string) (string, error) {
 	c := claims{
-		UserID: u.ID,
-		Name:   u.Name,
-		Role:   u.Role,
+		UserID:      u.ID,
+		Name:        u.Name,
+		Role:        u.Role,
+		Permissions: permissions,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(a.accessTTL)),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
@@ -89,7 +93,7 @@ func (a *Adapter) parse(tokenStr string, secret []byte) (portuser.Claims, error)
 	if err != nil || !token.Valid {
 		return portuser.Claims{}, fmt.Errorf("jwt: invalid token: %w", err)
 	}
-	return portuser.Claims{UserID: c.UserID, Name: c.Name, Role: c.Role}, nil
+	return portuser.Claims{UserID: c.UserID, Name: c.Name, Role: c.Role, Permissions: c.Permissions}, nil
 }
 
 // HashRefreshToken is a plain SHA-256 digest - refresh tokens are already

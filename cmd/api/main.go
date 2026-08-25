@@ -74,7 +74,7 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(recover.New())
 	app.Use(fiberlogger.New())
-	app.Use(cors.New())
+	app.Use(corsMiddleware(cfg))
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
@@ -106,6 +106,23 @@ func main() {
 	if err := app.ShutdownWithContext(ctx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+}
+
+// corsMiddleware only needs real configuration for cross-origin deployments
+// (e.g. a frontend dev server on a different port) - the Refresh Cookie
+// requires AllowCredentials plus an explicit, non-wildcard AllowOrigins list
+// to reach the browser at all (see ADR 0004). Same-origin production
+// deployments never hit CORS in the first place, so the default (no
+// AllowOrigins configured) keeps today's permissive behavior.
+func corsMiddleware(cfg *config.Config) fiber.Handler {
+	if len(cfg.CORSAllowOrigins) == 0 {
+		return cors.New()
+	}
+	return cors.New(cors.Config{
+		AllowOrigins:     cfg.CORSAllowOrigins,
+		AllowCredentials: true,
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", middleware.CSRFHeaderName},
+	})
 }
 
 // runAutoReorderJob periodically scans inventory for items below their

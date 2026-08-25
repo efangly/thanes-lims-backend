@@ -1,6 +1,10 @@
 package sample
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Model struct {
 	ID         string `gorm:"primaryKey"`
@@ -10,6 +14,10 @@ type Model struct {
 	LocationID *string
 	Status     string
 	ReceivedAt time.Time
+	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003) - GORM
+	// automatically excludes non-NULL rows from Find/First and stamps this
+	// instead of removing the row on Delete.
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func (Model) TableName() string { return "samples" }

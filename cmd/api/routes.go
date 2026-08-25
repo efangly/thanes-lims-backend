@@ -25,6 +25,7 @@ import (
 	postgreslocation "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/location"
 	postgresnotification "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/notification"
 	postgrespurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/purchaseorder"
+	postgresrbac "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/rbac"
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
 	postgrestestresult "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/testresult"
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
@@ -61,15 +62,18 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 
 	userRepo := postgresuser.New(gdb)
 	refreshRepo := postgresuser.NewRefreshTokenRepository(gdb)
+	rbacRepo := postgresrbac.New(gdb)
 
 	userHandler := httpuser.NewHandler(
-		applicationuser.NewLoginUseCase(userRepo, refreshRepo, tokens),
-		applicationuser.NewRefreshUseCase(userRepo, refreshRepo, tokens),
+		applicationuser.NewLoginUseCase(userRepo, refreshRepo, tokens, rbacRepo),
+		applicationuser.NewRefreshUseCase(userRepo, refreshRepo, tokens, rbacRepo),
 		applicationuser.NewLogoutUseCase(refreshRepo, tokens),
+		applicationuser.NewLogoutAllUseCase(refreshRepo),
 		applicationuser.NewCreateUserUseCase(userRepo),
 		applicationuser.NewListUsersUseCase(userRepo),
 		applicationuser.NewGetUserUseCase(userRepo),
-		applicationuser.NewUpdateUserUseCase(userRepo),
+		applicationuser.NewUpdateUserUseCase(userRepo, refreshRepo),
+		cfg.CookieSecure,
 	)
 	httpuser.RegisterRoutes(v1, userHandler, tokens)
 
@@ -185,7 +189,10 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	httpnotification.RegisterRoutes(v1, notificationHandler, tokens)
 
 	auditRepo := postgresaudit.New(gdb)
-	auditHandler := httpaudit.NewHandler(applicationaudit.NewListAuditLogsUseCase(auditRepo))
+	auditHandler := httpaudit.NewHandler(
+		applicationaudit.NewListAuditLogsUseCase(auditRepo),
+		applicationaudit.NewListAuditLogsPageUseCase(auditRepo),
+	)
 	httpaudit.RegisterRoutes(v1, auditHandler, tokens)
 
 	return autoReorderJob

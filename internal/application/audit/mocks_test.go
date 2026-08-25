@@ -19,3 +19,8 @@ func (m *mockAuditLogger) List(ctx context.Context, filter portaudit.ListFilter)
 	args := m.Called(ctx, filter)
 	return args.Get(0).([]domainaudit.AuditLog), args.Error(1)
 }
+
+func (m *mockAuditLogger) Count(ctx context.Context, filter portaudit.ListFilter) (int64, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).(int64), args.Error(1)
+}

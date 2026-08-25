@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
@@ -10,36 +12,79 @@ import (
 )
 
 type Handler struct {
-	login   *applicationuser.LoginUseCase
-	refresh *applicationuser.RefreshUseCase
-	logout  *applicationuser.LogoutUseCase
-	create  *applicationuser.CreateUserUseCase
-	list    *applicationuser.ListUsersUseCase
-	get     *applicationuser.GetUserUseCase
-	update  *applicationuser.UpdateUserUseCase
+	login        *applicationuser.LoginUseCase
+	refresh      *applicationuser.RefreshUseCase
+	logout       *applicationuser.LogoutUseCase
+	logoutAll    *applicationuser.LogoutAllUseCase
+	create       *applicationuser.CreateUserUseCase
+	list         *applicationuser.ListUsersUseCase
+	get          *applicationuser.GetUserUseCase
+	update       *applicationuser.UpdateUserUseCase
+	cookieSecure bool
 }
 
 func NewHandler(
 	login *applicationuser.LoginUseCase,
 	refresh *applicationuser.RefreshUseCase,
 	logout *applicationuser.LogoutUseCase,
+	logoutAll *applicationuser.LogoutAllUseCase,
 	create *applicationuser.CreateUserUseCase,
 	list *applicationuser.ListUsersUseCase,
 	get *applicationuser.GetUserUseCase,
 	update *applicationuser.UpdateUserUseCase,
+	cookieSecure bool,
 ) *Handler {
-	return &Handler{login: login, refresh: refresh, logout: logout, create: create, list: list, get: get, update: update}
+	return &Handler{
+		login:        login,
+		refresh:      refresh,
+		logout:       logout,
+		logoutAll:    logoutAll,
+		create:       create,
+		list:         list,
+		get:          get,
+		update:       update,
+		cookieSecure: cookieSecure,
+	}
+}
+
+// setRefreshCookie sets the httpOnly Refresh Cookie (see ADR 0004).
+func (h *Handler) setRefreshCookie(c fiber.Ctx, token string, expiresAt time.Time) {
+	c.Cookie(&fiber.Cookie{
+		Name:     middleware.RefreshCookieName,
+		Value:    token,
+		Path:     middleware.RefreshCookiePath,
+		Expires:  expiresAt,
+		Secure:   h.cookieSecure,
+		HTTPOnly: true,
+		SameSite: fiber.CookieSameSiteStrictMode,
+	})
+}
+
+// clearRefreshCookie expires the Refresh Cookie client-side. Set explicitly
+// with the same Path/attributes used when the cookie was set, rather than
+// via Fiber's ClearCookie helper, since that assumes the default Path "/".
+func (h *Handler) clearRefreshCookie(c fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     middleware.RefreshCookieName,
+		Value:    "",
+		Path:     middleware.RefreshCookiePath,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Secure:   h.cookieSecure,
+		HTTPOnly: true,
+		SameSite: fiber.CookieSameSiteStrictMode,
+	})
 }
 
 // Login godoc
 //
 //	@Summary		เข้าสู่ระบบ
-//	@Description	ตรวจสอบอีเมล/รหัสผ่าน แล้วคืน access/refresh token pair
+//	@Description	ตรวจสอบอีเมล/รหัสผ่าน คืน access token ใน body และตั้ง refresh token เป็น httpOnly cookie
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		LoginRequest	true	"อีเมลและรหัสผ่าน"
-//	@Success		200		{object}	response.Envelope{data=TokenPairResponse}
+//	@Success		200		{object}	response.Envelope{data=AccessTokenResponse}
 //	@Failure		400		{object}	response.Envelope
 //	@Failure		401		{object}	response.Envelope
 //	@Router			/auth/login [post]
@@ -52,61 +97,99 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		return err
 	}
 
-	pair, err := h.login.Execute(c.Context(), req.Email, req.Password)
+	pair, err := h.login.Execute(c.Context(), req.Email, req.Password, string(c.Request().Header.UserAgent()), c.IP())
 	if err != nil {
 		return err
 	}
-	return response.OK(c, TokenPairResponse{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken})
+	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
+	return response.OK(c, AccessTokenResponse{AccessToken: pair.AccessToken})
 }
 
 // Refresh godoc
 //
 //	@Summary		ต่ออายุ token
-//	@Description	แลก refresh token เก่าเป็น access/refresh token pair ใหม่
+//	@Description	แลก refresh token เก่า (จาก cookie หรือ body) เป็น access token ใหม่ และหมุน refresh token cookie
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		RefreshRequest	true	"Refresh token"
+//	@Param			request	body		RefreshRequest	false	"Refresh token (ใช้เมื่อไม่มี cookie)"
 //	@Success		200		{object}	response.Envelope{data=TokenPairResponse}
 //	@Failure		400		{object}	response.Envelope
 //	@Failure		401		{object}	response.Envelope
 //	@Router			/auth/refresh [post]
 func (h *Handler) Refresh(c fiber.Ctx) error {
-	var req RefreshRequest
-	if err := c.Bind().Body(&req); err != nil {
-		return err
+	raw := c.Cookies(middleware.RefreshCookieName)
+	usedCookie := raw != ""
+	if !usedCookie {
+		var req RefreshRequest
+		if err := c.Bind().Body(&req); err != nil {
+			return err
+		}
+		if err := validate.Struct(req); err != nil {
+			return err
+		}
+		raw = req.RefreshToken
 	}
-	if err := validate.Struct(req); err != nil {
+
+	pair, err := h.refresh.Execute(c.Context(), raw, string(c.Request().Header.UserAgent()), c.IP())
+	if err != nil {
+		h.clearRefreshCookie(c)
 		return err
 	}
 
-	pair, err := h.refresh.Execute(c.Context(), req.RefreshToken)
-	if err != nil {
-		return err
+	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
+	resp := TokenPairResponse{AccessToken: pair.AccessToken}
+	if !usedCookie {
+		resp.RefreshToken = pair.RefreshToken
 	}
-	return response.OK(c, TokenPairResponse{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken})
+	return response.OK(c, resp)
 }
 
 // Logout godoc
 //
 //	@Summary		ออกจากระบบ
-//	@Description	เพิกถอน refresh token ที่ระบุ
+//	@Description	เพิกถอน refresh token ของ session ปัจจุบัน (จาก cookie หรือ body) แล้วล้าง cookie
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		RefreshRequest	true	"Refresh token ที่ต้องการเพิกถอน"
+//	@Param			request	body		RefreshRequest	false	"Refresh token ที่ต้องการเพิกถอน (ใช้เมื่อไม่มี cookie)"
 //	@Success		200		{object}	response.Envelope
 //	@Failure		400		{object}	response.Envelope
 //	@Router			/auth/logout [post]
 func (h *Handler) Logout(c fiber.Ctx) error {
-	var req RefreshRequest
-	if err := c.Bind().Body(&req); err != nil {
-		return err
+	raw := c.Cookies(middleware.RefreshCookieName)
+	if raw == "" {
+		var req RefreshRequest
+		if err := c.Bind().Body(&req); err == nil {
+			raw = req.RefreshToken
+		}
 	}
-	if err := h.logout.Execute(c.Context(), req.RefreshToken); err != nil {
-		return err
+	if raw != "" {
+		if err := h.logout.Execute(c.Context(), raw); err != nil {
+			return err
+		}
 	}
+	h.clearRefreshCookie(c)
 	return response.OK(c, fiber.Map{"logged_out": true})
+}
+
+// LogoutAll godoc
+//
+//	@Summary		ออกจากระบบทุกอุปกรณ์
+//	@Description	เพิกถอน refresh token ของทุก session ของผู้ใช้ปัจจุบัน แล้วล้าง cookie
+//	@Tags			auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope
+//	@Failure		401	{object}	response.Envelope
+//	@Router			/auth/logout-all [post]
+func (h *Handler) LogoutAll(c fiber.Ctx) error {
+	userID := fiber.Locals[int64](c, middleware.LocalsUserID)
+	if err := h.logoutAll.Execute(c.Context(), userID); err != nil {
+		return err
+	}
+	h.clearRefreshCookie(c)
+	return response.OK(c, fiber.Map{"logged_out_all": true})
 }
 
 // Me godoc
@@ -184,6 +267,9 @@ func (h *Handler) CreateUser(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	// Snapshot the response DTO, not the domain User - it has no
+	// PasswordHash field, so the bcrypt hash never lands in Metadata.
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(toUserResponse(u)))
 	return response.Created(c, toUserResponse(u))
 }
 
@@ -214,6 +300,11 @@ func (h *Handler) UpdateUser(c fiber.Ctx) error {
 		return err
 	}
 
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	u, err := h.update.Execute(c.Context(), applicationuser.UpdateUserInput{
 		ID:   id,
 		Name: req.Name,
@@ -222,5 +313,6 @@ func (h *Handler) UpdateUser(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(toUserResponse(before), toUserResponse(u)))
 	return response.OK(c, toUserResponse(u))
 }

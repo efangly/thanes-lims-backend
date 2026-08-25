@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/efangly/thanes-lims-backend/internal/domain/rbac"
 	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
 	portuser "github.com/efangly/thanes-lims-backend/internal/ports/user"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +32,10 @@ func (m *mockUserRepo) Update(ctx context.Context, u domainuser.User) (domainuse
 	args := m.Called(ctx, u)
 	return args.Get(0).(domainuser.User), args.Error(1)
 }
+func (m *mockUserRepo) CountByRole(ctx context.Context, role domainuser.Role) (int64, error) {
+	args := m.Called(ctx, role)
+	return args.Get(0).(int64), args.Error(1)
+}
 
 type mockRefreshRepo struct{ mock.Mock }
 
@@ -53,8 +58,8 @@ func (m *mockRefreshRepo) RevokeAllForUser(ctx context.Context, userID int64) er
 
 type mockTokenService struct{ mock.Mock }
 
-func (m *mockTokenService) GenerateAccessToken(u domainuser.User) (string, error) {
-	args := m.Called(u)
+func (m *mockTokenService) GenerateAccessToken(u domainuser.User, permissions []string) (string, error) {
+	args := m.Called(u, permissions)
 	return args.String(0), args.Error(1)
 }
 func (m *mockTokenService) GenerateRefreshToken(u domainuser.User) (string, time.Time, error) {
@@ -72,4 +77,11 @@ func (m *mockTokenService) ParseRefreshToken(token string) (portuser.Claims, err
 func (m *mockTokenService) HashRefreshToken(token string) string {
 	args := m.Called(token)
 	return args.String(0)
+}
+
+type mockRBACRepo struct{ mock.Mock }
+
+func (m *mockRBACRepo) FindPermissionsByRoleName(ctx context.Context, roleName string) ([]rbac.Permission, error) {
+	args := m.Called(ctx, roleName)
+	return args.Get(0).([]rbac.Permission), args.Error(1)
 }

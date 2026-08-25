@@ -24,7 +24,10 @@ type ApprovePOInput struct {
 }
 
 func (uc *ApprovePOUseCase) Execute(ctx context.Context, in ApprovePOInput) (purchaseorder.PurchaseOrder, error) {
-	if !in.ActorRole.Can(domainuser.PermApprove) {
+	// Approve permission: same Admin/QA set the removed Can(PermApprove)
+	// matrix granted (see ADR 0002 - wiring this to the normalized RBAC
+	// model is a later phase, out of scope here).
+	if in.ActorRole != domainuser.RoleAdmin && in.ActorRole != domainuser.RoleQA {
 		return purchaseorder.PurchaseOrder{}, shared.ErrForbidden
 	}
 

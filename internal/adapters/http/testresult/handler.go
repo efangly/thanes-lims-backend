@@ -65,6 +65,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(t))
 	return response.Created(c, toResponse(t))
 }
 
@@ -167,14 +168,21 @@ func (h *Handler) SubmitResult(c fiber.Ctx) error {
 		return err
 	}
 
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	t, err := h.submit.Execute(c.Context(), applicationtestresult.SubmitResultInput{
-		ID:     c.Params("id"),
+		ID:     id,
 		Result: req.Result,
 		Flag:   testresult.Flag(req.Flag),
 	})
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, t))
 	return response.OK(c, toResponse(t))
 }
 
@@ -230,13 +238,20 @@ func (h *Handler) Approve(c fiber.Ctx) error {
 	role := fiber.Locals[domainuser.Role](c, middleware.LocalsRole)
 	name := fiber.Locals[string](c, middleware.LocalsName)
 
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
 	t, err := h.approve.Execute(c.Context(), applicationtestresult.ApproveResultInput{
-		ID:        c.Params("id"),
+		ID:        id,
 		ActorRole: role,
 		ActorName: name,
 	})
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, t))
 	return response.OK(c, toResponse(t))
 }

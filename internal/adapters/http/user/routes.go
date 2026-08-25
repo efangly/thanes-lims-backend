@@ -2,7 +2,7 @@ package user
 
 import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
-	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
+	"github.com/efangly/thanes-lims-backend/internal/domain/rbac"
 	portuser "github.com/efangly/thanes-lims-backend/internal/ports/user"
 	"github.com/gofiber/fiber/v3"
 )
@@ -10,17 +10,19 @@ import (
 // RegisterRoutes mounts auth (public) and user-management (protected)
 // endpoints onto the given router group.
 func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
+	authGuard := middleware.Auth(tokens)
+	csrf := middleware.RequireCSRFHeader()
+
 	auth := r.Group("/auth")
 	auth.Post("/login", h.Login)
-	auth.Post("/refresh", h.Refresh)
-	auth.Post("/logout", h.Logout)
-
-	authGuard := middleware.Auth(tokens)
+	auth.Post("/refresh", csrf, h.Refresh)
+	auth.Post("/logout", csrf, h.Logout)
+	auth.Post("/logout-all", authGuard, h.LogoutAll)
 
 	r.Get("/users/me", authGuard, h.Me)
 
-	admin := r.Group("/users", authGuard, middleware.RequireRole(domainuser.RoleAdmin))
-	admin.Get("/", h.ListUsers)
-	admin.Post("/", h.CreateUser)
-	admin.Patch("/:id", h.UpdateUser)
+	users := r.Group("/users", authGuard)
+	users.Get("/", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionView), h.ListUsers)
+	users.Post("/", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionCreate), h.CreateUser)
+	users.Patch("/:id", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionEdit), h.UpdateUser)
 }

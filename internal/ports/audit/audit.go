@@ -13,10 +13,19 @@ import (
 type AuditLogger interface {
 	Log(ctx context.Context, entry audit.AuditLog) error
 	List(ctx context.Context, filter ListFilter) ([]audit.AuditLog, error)
+	Count(ctx context.Context, filter ListFilter) (int64, error)
 }
 
-// ListFilter narrows an export to a date range; a nil bound is open-ended.
+// ListFilter narrows a listing/export by date range and, for the JSON
+// browse endpoint, by actor/resource/method. A nil/empty field is
+// unconstrained. Limit/Offset of 0 mean "no pagination" (used by the PDF
+// export, which always pulls the full matching set).
 type ListFilter struct {
-	From *time.Time
-	To   *time.Time
+	From     *time.Time
+	To       *time.Time
+	ActorID  *int64
+	Resource string
+	Method   string
+	Limit    int
+	Offset   int
 }

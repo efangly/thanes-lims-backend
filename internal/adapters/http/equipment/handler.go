@@ -5,6 +5,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
+	domainequipment "github.com/efangly/thanes-lims-backend/internal/domain/equipment"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -61,6 +62,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(e))
 	return response.Created(c, toResponse(e))
 }
 
@@ -138,6 +140,19 @@ func (h *Handler) RecordCalibration(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	// RecordCalibrationUseCase.Execute returns the updated Equipment, not
+	// the CalibrationEvent it appends internally - but the event's
+	// CalibratedAt/NextCalibrationDue end up mirrored onto Equipment's own
+	// fields, so it can be reconstructed here for the append-only snapshot
+	// (Calibration Event is audited as its own resource - see ADR 0003).
+	c.Locals(middleware.LocalsAuditResource, "calibration_event")
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(domainequipment.CalibrationEvent{
+		EquipmentID:        e.ID,
+		CalibratedAt:       e.LastCalibratedAt,
+		NextCalibrationDue: e.NextCalibrationDue,
+		PerformedBy:        name,
+		Notes:              req.Notes,
+	}))
 	return response.OK(c, toResponse(e))
 }
 

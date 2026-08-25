@@ -1,6 +1,10 @@
 package document
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Model struct {
 	ID          string `gorm:"primaryKey"`
@@ -12,6 +16,9 @@ type Model struct {
 	AccessLevel string
 	Locked      bool
 	StorageKey  string
+	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003); no
+	// DeleteDocument use case exists yet, but the column is in place.
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func (Model) TableName() string { return "documents" }

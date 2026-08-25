@@ -12,4 +12,7 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (user.User, error)
 	List(ctx context.Context) ([]user.User, error)
 	Update(ctx context.Context, u user.User) (user.User, error)
+	// CountByRole counts Users currently holding role - used by the
+	// last-admin guard in UpdateUser (see ADR 0002).
+	CountByRole(ctx context.Context, role user.Role) (int64, error)
 }
