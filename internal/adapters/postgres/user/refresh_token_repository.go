@@ -62,10 +62,20 @@ func (r *RefreshTokenRepository) FindByTokenHash(ctx context.Context, tokenHash 
 	return rtToDomain(m), nil
 }
 
-func (r *RefreshTokenRepository) Revoke(ctx context.Context, id int64) error {
+// Revoke ignores tokenHash - Postgres already has id, kept only so a
+// caching decorator wrapping this repository can invalidate by hash too.
+func (r *RefreshTokenRepository) Revoke(ctx context.Context, id int64, tokenHash string) error {
 	return r.db.WithContext(ctx).Model(&RefreshTokenModel{}).Where("id = ?", id).Update("revoked", true).Error
 }
 
 func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID int64) error {
 	return r.db.WithContext(ctx).Model(&RefreshTokenModel{}).Where("user_id = ?", userID).Update("revoked", true).Error
+}
+
+func (r *RefreshTokenRepository) FindTokenHashesByUserID(ctx context.Context, userID int64) ([]string, error) {
+	var hashes []string
+	err := r.db.WithContext(ctx).Model(&RefreshTokenModel{}).
+		Where("user_id = ? AND revoked = ?", userID, false).
+		Pluck("token_hash", &hashes).Error
+	return hashes, err
 }

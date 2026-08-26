@@ -37,6 +37,10 @@ type Config struct {
 	MinioBucket    string `env:"MINIO_BUCKET,required"`
 	MinioUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"true"`
 
+	// RedisURL backs the read-through Cache (see
+	// docs/adr/0005-redis-cache-for-refresh-tokens-and-location-full-path.md).
+	RedisURL string `env:"REDIS_URL,required"`
+
 	AutoReorderEnabled  bool          `env:"AUTO_REORDER_ENABLED" envDefault:"true"`
 	AutoReorderInterval time.Duration `env:"AUTO_REORDER_INTERVAL" envDefault:"1h"`
 

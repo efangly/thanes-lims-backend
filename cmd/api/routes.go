@@ -2,6 +2,10 @@ package main
 
 import (
 	_ "github.com/efangly/thanes-lims-backend/docs"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedenvironment"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedlocation"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedrbac"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/cacheduser"
 	httpaudit "github.com/efangly/thanes-lims-backend/internal/adapters/http/audit"
 	httpdocument "github.com/efangly/thanes-lims-backend/internal/adapters/http/document"
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
@@ -41,6 +45,7 @@ import (
 	applicationtestresult "github.com/efangly/thanes-lims-backend/internal/application/testresult"
 	applicationuser "github.com/efangly/thanes-lims-backend/internal/application/user"
 	"github.com/efangly/thanes-lims-backend/internal/config"
+	"github.com/efangly/thanes-lims-backend/internal/ports/cache"
 	"github.com/gofiber/contrib/v3/swaggo"
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
@@ -51,7 +56,7 @@ import (
 // testresult, ... per the implementation plan). It also returns the
 // auto-reorder job so main can run it on a schedule alongside the HTTP
 // server, since it's composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter) *applicationpurchaseorder.AutoReorderJob {
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
 	v1.Get("/health", func(c fiber.Ctx) error {
 		return response.OK(c, fiber.Map{"status": "ok"})
 	})
@@ -61,8 +66,8 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	tokens := jwt.New(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	userRepo := postgresuser.New(gdb)
-	refreshRepo := postgresuser.NewRefreshTokenRepository(gdb)
-	rbacRepo := postgresrbac.New(gdb)
+	refreshRepo := cacheduser.NewCachedRefreshTokenRepository(postgresuser.NewRefreshTokenRepository(gdb), redisCache)
+	rbacRepo := cachedrbac.NewCachedRepository(postgresrbac.New(gdb), redisCache)
 
 	userHandler := httpuser.NewHandler(
 		applicationuser.NewLoginUseCase(userRepo, refreshRepo, tokens, rbacRepo),
@@ -80,7 +85,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	idgen := postgresidgen.New(gdb)
 	sampleRepo := postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
-	locationRepo := postgreslocation.New(gdb)
+	locationRepo := cachedlocation.NewCachedRepository(postgreslocation.New(gdb), redisCache)
 
 	sampleHandler := httpsample.NewHandler(
 		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, idgen),
@@ -166,7 +171,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	)
 	httpdocument.RegisterRoutes(v1, documentHandler, tokens)
 
-	gaugeRepo := postgresenvironment.NewGaugeRepository(gdb)
+	gaugeRepo := cachedenvironment.NewCachedGaugeRepository(postgresenvironment.NewGaugeRepository(gdb), redisCache)
 	readingRepo := postgresenvironment.NewReadingRepository(gdb)
 	alertRepo := postgresenvironment.NewAlertRepository(gdb)
 	alertHub := httpenvironment.NewHub()

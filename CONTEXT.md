@@ -67,4 +67,14 @@ _Avoid_: Chain, token lineage
 
 **Reuse Detection** — The check that a Refresh Token already revoked by Rolling Refresh is being presented again — the signal that a Refresh Token has leaked. Triggers revocation of every Session the User holds, not just the offending Token Family, since a leaked token implies the whole account may be compromised.
 
+## Caching
+
+**Cache** — A Redis-backed, key-value read-through layer sitting in front of Postgres, accessed only through the `internal/ports/cache` port. Postgres remains the source of truth for every cached value; the Cache exists purely to reduce read load and is never the only place a value lives.
+_Avoid_: Store, session store (Redis here is a Cache, not a data store of record)
+
+**Refresh Token Cache Entry** — The cached copy of a Refresh Token row (family id, expiry, revoked flag, family_created_at), keyed by token hash, kept in sync with Postgres on every Rolling Refresh and revocation. Read fail-closed: if the Cache is unreachable, the request is rejected rather than risking a stale "not revoked" answer.
+_Avoid_: Token blacklist (the cache holds live rows, not just a revoked-token denylist)
+
+**Full Path Cache Entry** — The cached rendering of a Location's Full Path, keyed by Location id, expiring after a fixed TTL rather than being invalidated on Location changes. Read fail-open: if the Cache is unreachable or the entry has expired, Full Path is recomputed from Postgres directly.
+
 **Refresh Cookie** — The httpOnly cookie that carries the current Refresh Token from browser to backend, scoped to the auth endpoints only. Distinct from the Access Token, which continues to travel as a bearer value in the response body / `Authorization` header, never as a cookie.

@@ -29,7 +29,7 @@ func TestRefreshUseCase_ValidRotate(t *testing.T) {
 	tokens.On("HashRefreshToken", "raw").Return("hash1")
 	refresh.On("FindByTokenHash", mock.Anything, "hash1").Return(stored, nil)
 	users.On("FindByID", mock.Anything, int64(1)).Return(u, nil)
-	refresh.On("Revoke", mock.Anything, int64(10)).Return(nil)
+	refresh.On("Revoke", mock.Anything, int64(10), "").Return(nil)
 	rbacRepo.On("FindPermissionsByRoleName", mock.Anything, "Scientist").Return(perms, nil)
 	tokens.On("GenerateAccessToken", u, []string{"sample:edit"}).Return("new-access", nil)
 	tokens.On("GenerateRefreshToken", u).Return("new-refresh", time.Now().Add(time.Hour), nil)

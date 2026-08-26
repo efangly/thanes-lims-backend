@@ -47,13 +47,17 @@ func (m *mockRefreshRepo) FindByTokenHash(ctx context.Context, hash string) (dom
 	args := m.Called(ctx, hash)
 	return args.Get(0).(domainuser.RefreshToken), args.Error(1)
 }
-func (m *mockRefreshRepo) Revoke(ctx context.Context, id int64) error {
-	args := m.Called(ctx, id)
+func (m *mockRefreshRepo) Revoke(ctx context.Context, id int64, tokenHash string) error {
+	args := m.Called(ctx, id, tokenHash)
 	return args.Error(0)
 }
 func (m *mockRefreshRepo) RevokeAllForUser(ctx context.Context, userID int64) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)
+}
+func (m *mockRefreshRepo) FindTokenHashesByUserID(ctx context.Context, userID int64) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 type mockTokenService struct{ mock.Mock }

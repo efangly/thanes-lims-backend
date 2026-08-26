@@ -61,7 +61,7 @@ func (uc *RefreshUseCase) Execute(ctx context.Context, refreshTokenRaw, userAgen
 		return TokenPair{}, shared.ErrUnauthorized
 	}
 
-	if err := uc.refresh.Revoke(ctx, stored.ID); err != nil {
+	if err := uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash); err != nil {
 		return TokenPair{}, err
 	}
 

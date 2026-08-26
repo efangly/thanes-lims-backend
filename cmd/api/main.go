@@ -13,6 +13,7 @@ import (
 	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
+	redisadapter "github.com/efangly/thanes-lims-backend/internal/adapters/redis"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
 	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/config"
@@ -67,6 +68,12 @@ func main() {
 		log.Fatalf("minio: ensure bucket: %v", err)
 	}
 
+	redisCache, err := redisadapter.New(context.Background(), cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis: %v", err)
+	}
+	defer redisCache.Close()
+
 	app := fiber.New(fiber.Config{
 		ErrorHandler: middleware.ErrorMapper,
 	})
@@ -78,7 +85,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	autoReorderJob := registerRoutes(v1, cfg, gdb, fileStorage)
+	autoReorderJob := registerRoutes(v1, cfg, gdb, fileStorage, redisCache)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {
