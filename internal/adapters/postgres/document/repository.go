@@ -19,29 +19,33 @@ func New(db *gorm.DB) *Repository {
 
 func toDomain(m Model) document.Document {
 	return document.Document{
-		ID:          m.ID,
-		Name:        m.Name,
-		Type:        document.Type(m.Type),
-		Version:     m.Version,
-		CreatedBy:   m.CreatedBy,
-		IssuedAt:    m.IssuedAt,
-		AccessLevel: m.AccessLevel,
-		Locked:      m.Locked,
-		StorageKey:  m.StorageKey,
+		ID:                 m.ID,
+		Name:               m.Name,
+		Type:               document.Type(m.Type),
+		Version:            m.Version,
+		CreatedBy:          m.CreatedBy,
+		IssuedAt:           m.IssuedAt,
+		AccessLevel:        m.AccessLevel,
+		Locked:             m.Locked,
+		StorageKey:         m.StorageKey,
+		EquipmentID:        m.EquipmentID,
+		CalibrationEventID: m.CalibrationEventID,
 	}
 }
 
 func toModel(d document.Document) Model {
 	return Model{
-		ID:          d.ID,
-		Name:        d.Name,
-		Type:        string(d.Type),
-		Version:     d.Version,
-		CreatedBy:   d.CreatedBy,
-		IssuedAt:    d.IssuedAt,
-		AccessLevel: d.AccessLevel,
-		Locked:      d.Locked,
-		StorageKey:  d.StorageKey,
+		ID:                 d.ID,
+		Name:               d.Name,
+		Type:               string(d.Type),
+		Version:            d.Version,
+		CreatedBy:          d.CreatedBy,
+		IssuedAt:           d.IssuedAt,
+		AccessLevel:        d.AccessLevel,
+		Locked:             d.Locked,
+		StorageKey:         d.StorageKey,
+		EquipmentID:        d.EquipmentID,
+		CalibrationEventID: d.CalibrationEventID,
 	}
 }
 
@@ -68,6 +72,30 @@ func (r *Repository) FindByID(ctx context.Context, id string) (document.Document
 func (r *Repository) List(ctx context.Context) ([]document.Document, error) {
 	var models []Model
 	if err := r.db.WithContext(ctx).Order("id").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]document.Document, len(models))
+	for i, m := range models {
+		out[i] = toDomain(m)
+	}
+	return out, nil
+}
+
+func (r *Repository) ListByEquipment(ctx context.Context, equipmentID string) ([]document.Document, error) {
+	var models []Model
+	if err := r.db.WithContext(ctx).Where("equipment_id = ?", equipmentID).Order("id").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]document.Document, len(models))
+	for i, m := range models {
+		out[i] = toDomain(m)
+	}
+	return out, nil
+}
+
+func (r *Repository) ListByCalibrationEvent(ctx context.Context, calibrationEventID int64) ([]document.Document, error) {
+	var models []Model
+	if err := r.db.WithContext(ctx).Where("calibration_event_id = ?", calibrationEventID).Order("id").Find(&models).Error; err != nil {
 		return nil, err
 	}
 	out := make([]document.Document, len(models))

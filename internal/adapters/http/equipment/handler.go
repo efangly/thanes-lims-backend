@@ -1,35 +1,48 @@
 package equipment
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
 	domainequipment "github.com/efangly/thanes-lims-backend/internal/domain/equipment"
+	portequipment "github.com/efangly/thanes-lims-backend/internal/ports/equipment"
 	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
 	create                *applicationequipment.CreateEquipmentUseCase
+	update                *applicationequipment.UpdateEquipmentUseCase
 	list                  *applicationequipment.ListEquipmentUseCase
 	get                   *applicationequipment.GetEquipmentUseCase
 	recordCalibration     *applicationequipment.RecordCalibrationUseCase
 	listCalibrationEvents *applicationequipment.ListCalibrationEventsUseCase
+	schedules             *applicationequipment.CalibrationScheduleUseCase
+	searchResults         *applicationequipment.SearchCalibrationResultsUseCase
 }
 
 func NewHandler(
 	create *applicationequipment.CreateEquipmentUseCase,
+	update *applicationequipment.UpdateEquipmentUseCase,
 	list *applicationequipment.ListEquipmentUseCase,
 	get *applicationequipment.GetEquipmentUseCase,
 	recordCalibration *applicationequipment.RecordCalibrationUseCase,
 	listCalibrationEvents *applicationequipment.ListCalibrationEventsUseCase,
+	schedules *applicationequipment.CalibrationScheduleUseCase,
+	searchResults *applicationequipment.SearchCalibrationResultsUseCase,
 ) *Handler {
 	return &Handler{
 		create:                create,
+		update:                update,
 		list:                  list,
 		get:                   get,
 		recordCalibration:     recordCalibration,
 		listCalibrationEvents: listCalibrationEvents,
+		schedules:             schedules,
+		searchResults:         searchResults,
 	}
 }
 
@@ -58,12 +71,66 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		Name:               req.Name,
 		TypeCode:           req.TypeCode,
 		NextCalibrationDue: req.NextCalibrationDue,
+		SerialNumber:       req.SerialNumber,
+		Category:           req.Category,
+		Manufacturer:       req.Manufacturer,
+		Model:              req.Model,
+		InstallationDate:   req.InstallationDate,
+		VendorID:           req.VendorID,
+		LocationID:         req.LocationID,
 	})
 	if err != nil {
 		return err
 	}
 	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(e))
 	return response.Created(c, toResponse(e))
+}
+
+// Update godoc
+//
+//	@Summary		แก้ไขข้อมูลอุปกรณ์
+//	@Description	แก้ไขแบบบางส่วน — ส่งเฉพาะ field ที่ต้องการเปลี่ยน (วันสอบเทียบแก้ผ่าน /calibration เท่านั้น)
+//	@Tags			equipment
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Equipment ID"
+//	@Param			request	body		UpdateEquipmentRequest	true	"ข้อมูลที่แก้ไข"
+//	@Success		200		{object}	response.Envelope{data=EquipmentResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/equipment/{id} [patch]
+func (h *Handler) Update(c fiber.Ctx) error {
+	var req UpdateEquipmentRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	e, err := h.update.Execute(c.Context(), applicationequipment.UpdateEquipmentInput{
+		ID:               id,
+		Name:             req.Name,
+		TypeCode:         req.TypeCode,
+		SerialNumber:     req.SerialNumber,
+		Category:         req.Category,
+		Manufacturer:     req.Manufacturer,
+		Model:            req.Model,
+		InstallationDate: req.InstallationDate,
+		ClearInstallDate: req.ClearInstallationDate,
+		VendorID:         req.VendorID,
+		LocationID:       req.LocationID,
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, e))
+	return response.OK(c, toResponse(e))
 }
 
 // List godoc
@@ -136,6 +203,10 @@ func (h *Handler) RecordCalibration(c fiber.Ctx) error {
 		NextCalibrationDue: req.NextCalibrationDue,
 		PerformedBy:        name,
 		Notes:              req.Notes,
+		CalibrationType:    req.CalibrationType,
+		CalibrateValue:     req.CalibrateValue,
+		AcceptanceValue:    req.AcceptanceValue,
+		Result:             domainequipment.CalibrationResult(req.Result),
 	})
 	if err != nil {
 		return err
@@ -168,6 +239,170 @@ func (h *Handler) RecordCalibration(c fiber.Ctx) error {
 //	@Router			/equipment/{id}/calibration-events [get]
 func (h *Handler) ListCalibrationEvents(c fiber.Ctx) error {
 	events, err := h.listCalibrationEvents.Execute(c.Context(), c.Params("id"))
+	if err != nil {
+		return err
+	}
+	out := make([]CalibrationEventResponse, len(events))
+	for i, ev := range events {
+		out[i] = toCalibrationEventResponse(ev)
+	}
+	return response.OK(c, out)
+}
+
+// ListCalibrationSchedules godoc
+//
+//	@Summary		รายการตารางสอบเทียบของอุปกรณ์
+//	@Tags			equipment
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Equipment ID"
+//	@Success		200	{object}	response.Envelope{data=[]CalibrationScheduleResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Router			/equipment/{id}/calibration-schedules [get]
+func (h *Handler) ListCalibrationSchedules(c fiber.Ctx) error {
+	scheds, err := h.schedules.ListByEquipment(c.Context(), c.Params("id"))
+	if err != nil {
+		return err
+	}
+	out := make([]CalibrationScheduleResponse, len(scheds))
+	for i, s := range scheds {
+		out[i] = toCalibrationScheduleResponse(s)
+	}
+	return response.OK(c, out)
+}
+
+// CreateCalibrationSchedule godoc
+//
+//	@Summary		เพิ่มตารางสอบเทียบให้อุปกรณ์
+//	@Tags			equipment
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string								true	"Equipment ID"
+//	@Param			request	body		CreateCalibrationScheduleRequest	true	"ข้อมูลตารางสอบเทียบ"
+//	@Success		201		{object}	response.Envelope{data=CalibrationScheduleResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/equipment/{id}/calibration-schedules [post]
+func (h *Handler) CreateCalibrationSchedule(c fiber.Ctx) error {
+	var req CreateCalibrationScheduleRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+	s, err := h.schedules.Create(c.Context(), applicationequipment.CreateCalibrationScheduleInput{
+		EquipmentID:    c.Params("id"),
+		Label:          req.Label,
+		NextDueDate:    req.NextDueDate,
+		IntervalMonths: req.IntervalMonths,
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(s))
+	return response.Created(c, toCalibrationScheduleResponse(s))
+}
+
+// UpdateCalibrationSchedule godoc
+//
+//	@Summary		แก้ไขตารางสอบเทียบ
+//	@Tags			equipment
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id			path		string								true	"Equipment ID"
+//	@Param			scheduleId	path		integer								true	"Calibration Schedule ID"
+//	@Param			request		body		UpdateCalibrationScheduleRequest	true	"ข้อมูลที่แก้ไข"
+//	@Success		200			{object}	response.Envelope{data=CalibrationScheduleResponse}
+//	@Failure		400			{object}	response.Envelope
+//	@Failure		404			{object}	response.Envelope
+//	@Router			/equipment/{id}/calibration-schedules/{scheduleId} [patch]
+func (h *Handler) UpdateCalibrationSchedule(c fiber.Ctx) error {
+	scheduleID, err := strconv.ParseInt(c.Params("scheduleId"), 10, 64)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid schedule id")
+	}
+	var req UpdateCalibrationScheduleRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+	s, err := h.schedules.Update(c.Context(), applicationequipment.UpdateCalibrationScheduleInput{
+		EquipmentID:    c.Params("id"),
+		ID:             scheduleID,
+		Label:          req.Label,
+		NextDueDate:    req.NextDueDate,
+		IntervalMonths: req.IntervalMonths,
+		ClearInterval:  req.ClearInterval,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toCalibrationScheduleResponse(s))
+}
+
+// DeleteCalibrationSchedule godoc
+//
+//	@Summary		ลบตารางสอบเทียบ
+//	@Tags			equipment
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id			path	string	true	"Equipment ID"
+//	@Param			scheduleId	path	integer	true	"Calibration Schedule ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/equipment/{id}/calibration-schedules/{scheduleId} [delete]
+func (h *Handler) DeleteCalibrationSchedule(c fiber.Ctx) error {
+	scheduleID, err := strconv.ParseInt(c.Params("scheduleId"), 10, 64)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid schedule id")
+	}
+	if err := h.schedules.Delete(c.Context(), c.Params("id"), scheduleID); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// SearchCalibrationResults godoc
+//
+//	@Summary		ค้นหาผลการสอบเทียบทั้งหมด
+//	@Description	รายการผลสอบเทียบข้ามทุกอุปกรณ์ พร้อม search bar (requirement 2.2.1)
+//	@Tags			equipment
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			q				query		string	false	"ค้นหา (รหัส/ชื่ออุปกรณ์, ผู้สอบเทียบ, ประเภท, หมายเหตุ)"
+//	@Param			equipment_id	query		string	false	"กรองตามอุปกรณ์"
+//	@Param			result			query		string	false	"pass หรือ fail"
+//	@Param			from			query		string	false	"วันสอบเทียบตั้งแต่ (RFC3339)"
+//	@Param			to				query		string	false	"วันสอบเทียบถึง (RFC3339)"
+//	@Success		200				{object}	response.Envelope{data=[]CalibrationEventResponse}
+//	@Failure		401				{object}	response.Envelope
+//	@Router			/calibration-results [get]
+func (h *Handler) SearchCalibrationResults(c fiber.Ctx) error {
+	f := portequipment.CalibrationSearchFilter{
+		Query:       c.Query("q"),
+		EquipmentID: c.Query("equipment_id"),
+		Result:      domainequipment.CalibrationResult(c.Query("result")),
+	}
+	if v := c.Query("from"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid from date")
+		}
+		f.From = &t
+	}
+	if v := c.Query("to"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid to date")
+		}
+		f.To = &t
+	}
+	events, err := h.searchResults.Execute(c.Context(), f)
 	if err != nil {
 		return err
 	}

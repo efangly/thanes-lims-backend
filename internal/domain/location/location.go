@@ -6,70 +6,113 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
 )
 
+// Kind is the discriminator that says which subsystem a Location tree
+// belongs to - see docs/adr/0007 and CONTEXT.md "Location Kind".
+//
+//   - KindSampleStorage: the original tree (cabinet > shelf > slot > sub_slot),
+//     leaf-only assignment, occupancy-checked.
+//   - KindEquipmentStorage: a second tree (building > room > zone > cabinet >
+//     shelf), no occupancy constraint, shared by Equipment and Inventory Item.
+type Kind string
+
+const (
+	KindSampleStorage    Kind = "sample_storage"
+	KindEquipmentStorage Kind = "equipment_storage"
+)
+
 // LevelType is the rung of the storage hierarchy a Location occupies. The
-// order is fixed - a parent's LevelType must be the immediate predecessor of
-// its child's, levels cannot be skipped. See CONTEXT.md#storage-location.
+// order is fixed *within a Kind* - a parent's LevelType must be the
+// immediate predecessor of its child's, levels cannot be skipped. The same
+// LevelType string (e.g. "cabinet") may appear in more than one Kind's
+// hierarchy at a different depth; it is always disambiguated by the
+// Location's Kind. See CONTEXT.md#storage-location.
 type LevelType string
 
 const (
+	// KindSampleStorage levels.
 	LevelCabinet LevelType = "cabinet"
 	LevelShelf   LevelType = "shelf"
 	LevelSlot    LevelType = "slot"
 	LevelSubSlot LevelType = "sub_slot"
+
+	// KindEquipmentStorage levels (building > room > zone > cabinet > shelf).
+	// LevelCabinet and LevelShelf are reused from the Sample hierarchy.
+	LevelBuilding LevelType = "building"
+	LevelRoom     LevelType = "room"
+	LevelZone     LevelType = "zone"
 )
 
-// levelOrder maps each LevelType to its depth, used to validate that a child
-// is exactly one rung below its parent.
-var levelOrder = map[LevelType]int{
-	LevelCabinet: 0,
-	LevelShelf:   1,
-	LevelSlot:    2,
-	LevelSubSlot: 3,
+// hierarchies is the fixed, ordered list of LevelTypes for each Kind, root
+// first. Depth = index in the slice.
+var hierarchies = map[Kind][]LevelType{
+	KindSampleStorage:    {LevelCabinet, LevelShelf, LevelSlot, LevelSubSlot},
+	KindEquipmentStorage: {LevelBuilding, LevelRoom, LevelZone, LevelCabinet, LevelShelf},
 }
 
-func (t LevelType) Valid() bool {
-	_, ok := levelOrder[t]
+// Valid reports whether k is a known Location Kind.
+func (k Kind) Valid() bool {
+	_, ok := hierarchies[k]
 	return ok
 }
 
-var levelsByDepth = []LevelType{LevelCabinet, LevelShelf, LevelSlot, LevelSubSlot}
+// Levels returns k's fixed level hierarchy, root first.
+func (k Kind) Levels() []LevelType {
+	return hierarchies[k]
+}
 
-// Next returns the LevelType immediately below t in the hierarchy, and
-// false if t is already the deepest level (sub_slot cannot be subdivided
-// further).
-func (t LevelType) Next() (LevelType, bool) {
-	depth, ok := levelOrder[t]
-	if !ok || depth+1 >= len(levelsByDepth) {
+// RootLevel returns the LevelType a root (parentless) Location of Kind k
+// must have, and false if k is not a valid Kind.
+func (k Kind) RootLevel() (LevelType, bool) {
+	levels := hierarchies[k]
+	if len(levels) == 0 {
 		return "", false
 	}
-	return levelsByDepth[depth+1], true
+	return levels[0], true
 }
 
-// CanBeChildOf reports whether a Location of LevelType t may be created as a
-// direct child of a Location whose LevelType is parent - i.e. t is exactly
-// one rung below parent in the fixed hierarchy.
-func (t LevelType) CanBeChildOf(parent LevelType) bool {
-	parentDepth, ok := levelOrder[parent]
-	if !ok {
-		return false
+func levelDepth(k Kind, t LevelType) (int, bool) {
+	for i, lt := range hierarchies[k] {
+		if lt == t {
+			return i, true
+		}
 	}
-	childDepth, ok := levelOrder[t]
-	if !ok {
-		return false
-	}
-	return childDepth == parentDepth+1
+	return 0, false
 }
 
-// Location is a node in the physical storage hierarchy where Samples are
-// kept (Cabinet > Shelf > Slot > Sub-slot). A nil ParentID marks a Cabinet
-// (root). Whether a Location is a leaf - the only kind a Sample may be
-// assigned to - is determined by whether it has children, not by LevelType:
-// any level can be a leaf if the operator doesn't subdivide it further.
+// LevelValidForKind reports whether t is a rung in k's hierarchy.
+func LevelValidForKind(k Kind, t LevelType) bool {
+	_, ok := levelDepth(k, t)
+	return ok
+}
+
+// ChildLevel returns the LevelType immediately below parent in Kind k's
+// hierarchy, and false if parent is already the deepest level or is not a
+// rung of k.
+func ChildLevel(k Kind, parent LevelType) (LevelType, bool) {
+	depth, ok := levelDepth(k, parent)
+	if !ok {
+		return "", false
+	}
+	levels := hierarchies[k]
+	if depth+1 >= len(levels) {
+		return "", false
+	}
+	return levels[depth+1], true
+}
+
+// Location is a node in a physical storage hierarchy. A nil ParentID marks
+// a root (a Cabinet for KindSampleStorage, a Building for
+// KindEquipmentStorage). Whether a Location is a leaf - the only kind a
+// Sample may be assigned to, for KindSampleStorage - is determined by
+// whether it has children, not by LevelType. BarcodeCode is an
+// auto-generated scan code, unique across non-Retired Locations.
 type Location struct {
-	ID        string
-	ParentID  *string
-	Name      string
-	LevelType LevelType
+	ID          string
+	ParentID    *string
+	Name        string
+	Kind        Kind
+	LevelType   LevelType
+	BarcodeCode string
 }
 
 func (l Location) IsRoot() bool {
@@ -77,13 +120,17 @@ func (l Location) IsRoot() bool {
 }
 
 // ValidateChild checks whether candidate is allowed to be created as a
-// direct child of l: candidate's LevelType must be exactly one rung below
-// l's, and only a Cabinet (root) may have no ParentID.
+// direct child of parent: same Kind, and candidate's LevelType is exactly
+// one rung below parent's in that Kind's fixed hierarchy.
 func ValidateChild(parent Location, candidate Location) error {
-	if !candidate.LevelType.Valid() {
-		return fmt.Errorf("%w: invalid level_type %q", shared.ErrValidation, candidate.LevelType)
+	if candidate.Kind != parent.Kind {
+		return fmt.Errorf("%w: child Kind %q does not match parent Kind %q", shared.ErrValidation, candidate.Kind, parent.Kind)
 	}
-	if !candidate.LevelType.CanBeChildOf(parent.LevelType) {
+	if !LevelValidForKind(candidate.Kind, candidate.LevelType) {
+		return fmt.Errorf("%w: invalid level_type %q for kind %q", shared.ErrValidation, candidate.LevelType, candidate.Kind)
+	}
+	want, ok := ChildLevel(parent.Kind, parent.LevelType)
+	if !ok || candidate.LevelType != want {
 		return fmt.Errorf("%w: %s cannot be a child of %s", shared.ErrValidation, candidate.LevelType, parent.LevelType)
 	}
 	return nil

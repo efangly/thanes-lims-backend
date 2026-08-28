@@ -7,26 +7,30 @@ import (
 )
 
 type DocumentResponse struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Type        string    `json:"type"`
-	Version     string    `json:"version"`
-	CreatedBy   string    `json:"created_by"`
-	IssuedAt    time.Time `json:"issued_at"`
-	AccessLevel string    `json:"access_level"`
-	Locked      bool      `json:"locked"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Type               string    `json:"type"`
+	Version            string    `json:"version"`
+	CreatedBy          string    `json:"created_by"`
+	IssuedAt           time.Time `json:"issued_at"`
+	AccessLevel        string    `json:"access_level"`
+	Locked             bool      `json:"locked"`
+	EquipmentID        *string   `json:"equipment_id"`
+	CalibrationEventID *int64    `json:"calibration_event_id"`
 }
 
 func toResponse(d document.Document) DocumentResponse {
 	return DocumentResponse{
-		ID:          d.ID,
-		Name:        d.Name,
-		Type:        string(d.Type),
-		Version:     d.Version,
-		CreatedBy:   d.CreatedBy,
-		IssuedAt:    d.IssuedAt,
-		AccessLevel: d.AccessLevel,
-		Locked:      d.Locked,
+		ID:                 d.ID,
+		Name:               d.Name,
+		Type:               string(d.Type),
+		Version:            d.Version,
+		CreatedBy:          d.CreatedBy,
+		IssuedAt:           d.IssuedAt,
+		AccessLevel:        d.AccessLevel,
+		Locked:             d.Locked,
+		EquipmentID:        d.EquipmentID,
+		CalibrationEventID: d.CalibrationEventID,
 	}
 }
 

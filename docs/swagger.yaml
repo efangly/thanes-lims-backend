@@ -16,11 +16,39 @@ definitions:
       message:
         type: string
     type: object
+  internal_adapters_http_audit.EntryResponse:
+    properties:
+      actor_id:
+        type: integer
+      actor_role:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      metadata:
+        additionalProperties: {}
+        type: object
+      method:
+        type: string
+      path:
+        type: string
+      resource:
+        type: string
+      resource_id:
+        type: string
+      status_code:
+        type: integer
+    type: object
   internal_adapters_http_document.DocumentResponse:
     properties:
       access_level:
         type: string
+      calibration_event_id:
+        type: integer
       created_by:
+        type: string
+      equipment_id:
         type: string
       id:
         type: string
@@ -101,7 +129,13 @@ definitions:
     type: object
   internal_adapters_http_equipment.CalibrationEventResponse:
     properties:
+      acceptance_value:
+        type: string
+      calibrate_value:
+        type: string
       calibrated_at:
+        type: string
+      calibration_type:
         type: string
       equipment_id:
         type: string
@@ -113,14 +147,55 @@ definitions:
         type: string
       performed_by:
         type: string
+      result:
+        type: string
+    type: object
+  internal_adapters_http_equipment.CalibrationScheduleResponse:
+    properties:
+      equipment_id:
+        type: string
+      id:
+        type: integer
+      interval_months:
+        type: integer
+      label:
+        type: string
+      next_due_date:
+        type: string
+    type: object
+  internal_adapters_http_equipment.CreateCalibrationScheduleRequest:
+    properties:
+      interval_months:
+        type: integer
+      label:
+        type: string
+      next_due_date:
+        type: string
+    required:
+    - label
+    - next_due_date
     type: object
   internal_adapters_http_equipment.CreateEquipmentRequest:
     properties:
+      category:
+        type: string
+      installation_date:
+        type: string
+      location_id:
+        type: string
+      manufacturer:
+        type: string
+      model:
+        type: string
       name:
         type: string
       next_calibration_due:
         type: string
+      serial_number:
+        type: string
       type_code:
+        type: string
+      vendor_id:
         type: string
     required:
     - name
@@ -131,13 +206,25 @@ definitions:
     properties:
       calibration_pct:
         type: integer
+      category:
+        type: string
       id:
         type: string
+      installation_date:
+        type: string
       last_calibrated_at:
+        type: string
+      location_id:
+        type: string
+      manufacturer:
+        type: string
+      model:
         type: string
       name:
         type: string
       next_calibration_due:
+        type: string
+      serial_number:
         type: string
       status:
         type: string
@@ -145,21 +232,74 @@ definitions:
         type: string
       usage_hours:
         type: integer
+      vendor_id:
+        type: string
     type: object
   internal_adapters_http_equipment.RecordCalibrationRequest:
     properties:
+      acceptance_value:
+        type: string
+      calibrate_value:
+        type: string
+      calibration_type:
+        type: string
       next_calibration_due:
         type: string
       notes:
         type: string
+      result:
+        enum:
+        - pass
+        - fail
+        type: string
     required:
     - next_calibration_due
+    type: object
+  internal_adapters_http_equipment.UpdateCalibrationScheduleRequest:
+    properties:
+      clear_interval:
+        type: boolean
+      interval_months:
+        type: integer
+      label:
+        type: string
+      next_due_date:
+        type: string
+    type: object
+  internal_adapters_http_equipment.UpdateEquipmentRequest:
+    properties:
+      category:
+        type: string
+      clear_installation_date:
+        type: boolean
+      installation_date:
+        type: string
+      location_id:
+        type: string
+      manufacturer:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      serial_number:
+        type: string
+      type_code:
+        type: string
+      vendor_id:
+        type: string
     type: object
   internal_adapters_http_inventory.CreateItemRequest:
     properties:
       category:
         type: string
+      custodian_user_id:
+        type: integer
       default_vendor:
+        type: string
+      location_id:
+        type: string
+      manufacturer:
         type: string
       max:
         type: integer
@@ -167,22 +307,65 @@ definitions:
         type: integer
       name:
         type: string
-      quantity:
-        type: integer
       unit:
+        type: string
+      vendor_id:
         type: string
     required:
     - category
+    - custodian_user_id
     - name
     - unit
+    type: object
+  internal_adapters_http_inventory.IssueLineRequest:
+    properties:
+      lot_id:
+        type: string
+      quantity:
+        type: integer
+    required:
+    - lot_id
+    type: object
+  internal_adapters_http_inventory.IssueStockRequest:
+    properties:
+      force:
+        type: boolean
+      lines:
+        items:
+          $ref: '#/definitions/internal_adapters_http_inventory.IssueLineRequest'
+        minItems: 1
+        type: array
+    required:
+    - lines
+    type: object
+  internal_adapters_http_inventory.IssueStockResponse:
+    properties:
+      applied:
+        type: boolean
+      item:
+        $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+      lots:
+        items:
+          $ref: '#/definitions/internal_adapters_http_inventory.LotResponse'
+        type: array
+      shortfalls:
+        items:
+          $ref: '#/definitions/internal_adapters_http_inventory.ShortfallResponse'
+        type: array
     type: object
   internal_adapters_http_inventory.ItemResponse:
     properties:
       category:
         type: string
+      custodian_user_id:
+        type: integer
       default_vendor:
         type: string
       id:
+        type: string
+      location_id:
+        type: string
+      manufacturer:
         type: string
       max:
         type: integer
@@ -198,6 +381,39 @@ definitions:
         type: string
       unit:
         type: string
+      vendor_id:
+        type: string
+    type: object
+  internal_adapters_http_inventory.LotResponse:
+    properties:
+      expire_date:
+        type: string
+      id:
+        type: string
+      item_id:
+        type: string
+      lot_no:
+        type: string
+      quantity:
+        type: integer
+    type: object
+  internal_adapters_http_inventory.ReceiveStockRequest:
+    properties:
+      expire_date:
+        type: string
+      lot_no:
+        type: string
+      quantity:
+        type: integer
+    required:
+    - lot_no
+    type: object
+  internal_adapters_http_inventory.ReceiveStockResponse:
+    properties:
+      item:
+        $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+      lot:
+        $ref: '#/definitions/internal_adapters_http_inventory.LotResponse'
     type: object
   internal_adapters_http_inventory.ReorderRequest:
     properties:
@@ -206,6 +422,17 @@ definitions:
     required:
     - vendor
     type: object
+  internal_adapters_http_inventory.ShortfallResponse:
+    properties:
+      available:
+        type: integer
+      lot_id:
+        type: string
+      lot_no:
+        type: string
+      requested:
+        type: integer
+    type: object
   internal_adapters_http_inventory.UpdateDefaultVendorRequest:
     properties:
       vendor:
@@ -213,14 +440,37 @@ definitions:
     required:
     - vendor
     type: object
-  internal_adapters_http_inventory.UpdateQuantityRequest:
+  internal_adapters_http_inventory.UpdateItemRequest:
     properties:
-      quantity:
-        minimum: 0
+      category:
+        type: string
+      custodian_user_id:
         type: integer
+      location_id:
+        type: string
+      manufacturer:
+        type: string
+      max:
+        type: integer
+      min:
+        type: integer
+      name:
+        type: string
+      unit:
+        type: string
+      vendor_id:
+        type: string
     type: object
   internal_adapters_http_location.CreateCabinetRequest:
     properties:
+      kind:
+        description: |-
+          Kind selects the tree: "sample_storage" (default) or
+          "equipment_storage".
+        enum:
+        - sample_storage
+        - equipment_storage
+        type: string
       name:
         type: string
     required:
@@ -244,7 +494,11 @@ definitions:
     type: object
   internal_adapters_http_location.LocationResponse:
     properties:
+      barcode_code:
+        type: string
       id:
+        type: string
+      kind:
         type: string
       level_type:
         type: string
@@ -269,6 +523,15 @@ definitions:
         type: string
       tone:
         type: string
+    type: object
+  internal_adapters_http_purchaseorder.MarkReceivedRequest:
+    properties:
+      expire_date:
+        type: string
+      lot_no:
+        type: string
+    required:
+    - lot_no
     type: object
   internal_adapters_http_purchaseorder.POResponse:
     properties:
@@ -296,10 +559,10 @@ definitions:
     type: object
   internal_adapters_http_sample.AssignLocationRequest:
     properties:
+      location_barcode_code:
+        type: string
       location_id:
         type: string
-    required:
-    - location_id
     type: object
   internal_adapters_http_sample.CoCStepResponse:
     properties:
@@ -320,7 +583,11 @@ definitions:
     type: object
   internal_adapters_http_sample.CreateSampleRequest:
     properties:
-      custodian:
+      barcode_id:
+        type: string
+      custodian_user_id:
+        type: integer
+      description:
         type: string
       location_id:
         type: string
@@ -329,13 +596,17 @@ definitions:
       type:
         type: string
     required:
-    - custodian
+    - custodian_user_id
     - name
     - type
     type: object
   internal_adapters_http_sample.SampleResponse:
     properties:
-      custodian:
+      barcode_id:
+        type: string
+      custodian_user_id:
+        type: integer
+      description:
         type: string
       id:
         type: string
@@ -403,6 +674,11 @@ definitions:
       status:
         type: string
       test_name:
+        type: string
+    type: object
+  internal_adapters_http_user.AccessTokenResponse:
+    properties:
+      access_token:
         type: string
     type: object
   internal_adapters_http_user.CreateUserRequest:
@@ -512,11 +788,74 @@ paths:
       summary: ส่งออก audit log เป็น PDF
       tags:
       - audit
+  /audit/logs:
+    get:
+      description: รองรับกรองด้วย `actor_id`, `resource`, `method`, `from`, `to` และแบ่งหน้าด้วย
+        `page`/`limit`
+      parameters:
+      - description: กรองตาม Actor ID
+        in: query
+        name: actor_id
+        type: integer
+      - description: กรองตาม resource
+        in: query
+        name: resource
+        type: string
+      - description: กรองตาม HTTP method
+        in: query
+        name: method
+        type: string
+      - description: วันที่เริ่มต้น (RFC3339 หรือ YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: วันที่สิ้นสุด (RFC3339 หรือ YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      - default: 1
+        description: หน้า
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: จำนวนต่อหน้า
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_audit.EntryResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการ audit log (JSON)
+      tags:
+      - audit
   /auth/login:
     post:
       consumes:
       - application/json
-      description: ตรวจสอบอีเมล/รหัสผ่าน แล้วคืน access/refresh token pair
+      description: ตรวจสอบอีเมล/รหัสผ่าน คืน access token ใน body และตั้ง refresh
+        token เป็น httpOnly cookie
       parameters:
       - description: อีเมลและรหัสผ่าน
         in: body
@@ -534,7 +873,7 @@ paths:
             - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_user.TokenPairResponse'
+                  $ref: '#/definitions/internal_adapters_http_user.AccessTokenResponse'
               type: object
         "400":
           description: Bad Request
@@ -551,12 +890,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: เพิกถอน refresh token ที่ระบุ
+      description: เพิกถอน refresh token ของ session ปัจจุบัน (จาก cookie หรือ body)
+        แล้วล้าง cookie
       parameters:
-      - description: Refresh token ที่ต้องการเพิกถอน
+      - description: Refresh token ที่ต้องการเพิกถอน (ใช้เมื่อไม่มี cookie)
         in: body
         name: request
-        required: true
         schema:
           $ref: '#/definitions/internal_adapters_http_user.RefreshRequest'
       produces:
@@ -573,16 +912,36 @@ paths:
       summary: ออกจากระบบ
       tags:
       - auth
+  /auth/logout-all:
+    post:
+      description: เพิกถอน refresh token ของทุก session ของผู้ใช้ปัจจุบัน แล้วล้าง
+        cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ออกจากระบบทุกอุปกรณ์
+      tags:
+      - auth
   /auth/refresh:
     post:
       consumes:
       - application/json
-      description: แลก refresh token เก่าเป็น access/refresh token pair ใหม่
+      description: แลก refresh token เก่า (จาก cookie หรือ body) เป็น access token
+        ใหม่ และหมุน refresh token cookie
       parameters:
-      - description: Refresh token
+      - description: Refresh token (ใช้เมื่อไม่มี cookie)
         in: body
         name: request
-        required: true
         schema:
           $ref: '#/definitions/internal_adapters_http_user.RefreshRequest'
       produces:
@@ -608,8 +967,64 @@ paths:
       summary: ต่ออายุ token
       tags:
       - auth
+  /calibration-results:
+    get:
+      description: รายการผลสอบเทียบข้ามทุกอุปกรณ์ พร้อม search bar (requirement 2.2.1)
+      parameters:
+      - description: ค้นหา (รหัส/ชื่ออุปกรณ์, ผู้สอบเทียบ, ประเภท, หมายเหตุ)
+        in: query
+        name: q
+        type: string
+      - description: กรองตามอุปกรณ์
+        in: query
+        name: equipment_id
+        type: string
+      - description: pass หรือ fail
+        in: query
+        name: result
+        type: string
+      - description: วันสอบเทียบตั้งแต่ (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: วันสอบเทียบถึง (RFC3339)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_equipment.CalibrationEventResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ค้นหาผลการสอบเทียบทั้งหมด
+      tags:
+      - equipment
   /documents:
     get:
+      parameters:
+      - description: กรองเฉพาะเอกสารที่ผูกกับอุปกรณ์นี้
+        in: query
+        name: equipment_id
+        type: string
+      - description: กรองเฉพาะเอกสารที่ผูกกับรายการสอบเทียบนี้
+        in: query
+        name: calibration_event_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -657,6 +1072,14 @@ paths:
         name: access_level
         required: true
         type: string
+      - description: ผูกกับอุปกรณ์ (optional)
+        in: formData
+        name: equipment_id
+        type: string
+      - description: ผูกกับรายการสอบเทียบ (optional, สำหรับใบรับรอง)
+        in: formData
+        name: calibration_event_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -1087,6 +1510,52 @@ paths:
       summary: ดึงข้อมูลอุปกรณ์ตาม ID
       tags:
       - equipment
+    patch:
+      consumes:
+      - application/json
+      description: แก้ไขแบบบางส่วน — ส่งเฉพาะ field ที่ต้องการเปลี่ยน (วันสอบเทียบแก้ผ่าน
+        /calibration เท่านั้น)
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ข้อมูลที่แก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_equipment.UpdateEquipmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.EquipmentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขข้อมูลอุปกรณ์
+      tags:
+      - equipment
   /equipment/{id}/calibration:
     patch:
       consumes:
@@ -1161,6 +1630,149 @@ paths:
       security:
       - BearerAuth: []
       summary: ประวัติการสอบเทียบของอุปกรณ์
+      tags:
+      - equipment
+  /equipment/{id}/calibration-schedules:
+    get:
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการตารางสอบเทียบของอุปกรณ์
+      tags:
+      - equipment
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ข้อมูลตารางสอบเทียบ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_equipment.CreateCalibrationScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เพิ่มตารางสอบเทียบให้อุปกรณ์
+      tags:
+      - equipment
+  /equipment/{id}/calibration-schedules/{scheduleId}:
+    delete:
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Calibration Schedule ID
+        in: path
+        name: scheduleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ลบตารางสอบเทียบ
+      tags:
+      - equipment
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Equipment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Calibration Schedule ID
+        in: path
+        name: scheduleId
+        required: true
+        type: integer
+      - description: ข้อมูลที่แก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_equipment.UpdateCalibrationScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขตารางสอบเทียบ
       tags:
       - equipment
   /inventory:
@@ -1256,6 +1868,52 @@ paths:
       summary: ดึงข้อมูลรายการวัสดุคงคลังตาม ID
       tags:
       - inventory
+    patch:
+      consumes:
+      - application/json
+      description: แก้ไขบางส่วน (partial) — จำนวนคงคลังมาจากการรับล็อต (/receive),
+        ผู้ขายเริ่มต้นแก้ผ่าน /default-vendor
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ข้อมูลที่แก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_inventory.UpdateItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขข้อมูลรายการวัสดุคงคลัง
+      tags:
+      - inventory
   /inventory/{id}/default-vendor:
     patch:
       consumes:
@@ -1302,23 +1960,25 @@ paths:
       summary: ตั้งค่าผู้ขายเริ่มต้นของรายการ
       tags:
       - inventory
-  /inventory/{id}/quantity:
-    patch:
+  /inventory/{id}/issue:
+    post:
       consumes:
       - application/json
-      description: แจ้งเตือนอัตโนมัติหากจำนวนต่ำกว่า min
+      description: เบิกออกตามล็อตที่ผู้ใช้เลือกเอง (ไม่ใช่ FEFO อัตโนมัติ) — ถ้าจำนวนที่เบิกเกินยอดคงเหลือของล็อต
+        ระบบจะไม่หักและตอบยอดคงเหลือจริงกลับมา (applied=false) ให้ระบุล็อตเพิ่มหรือส่งใหม่พร้อม
+        force=true เพื่อยอมให้ยอดล็อตติดลบ (ADR 0008)
       parameters:
       - description: Item ID
         in: path
         name: id
         required: true
         type: string
-      - description: จำนวนใหม่
+      - description: รายการล็อตที่เบิกออก
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_inventory.UpdateQuantityRequest'
+          $ref: '#/definitions/internal_adapters_http_inventory.IssueStockRequest'
       produces:
       - application/json
       responses:
@@ -1329,7 +1989,7 @@ paths:
             - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_inventory.ItemResponse'
+                  $ref: '#/definitions/internal_adapters_http_inventory.IssueStockResponse'
               type: object
         "400":
           description: Bad Request
@@ -1345,7 +2005,90 @@ paths:
             $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
       security:
       - BearerAuth: []
-      summary: ปรับจำนวนคงคลัง
+      summary: เบิกของออกจากคลัง
+      tags:
+      - inventory
+  /inventory/{id}/lots:
+    get:
+      description: ทุกล็อตของรายการ — ใช้เลือกล็อตตอนเบิกออก (Stock Issue)
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_inventory.LotResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการล็อตของวัสดุคงคลัง
+      tags:
+      - inventory
+  /inventory/{id}/receive:
+    post:
+      consumes:
+      - application/json
+      description: รับสินค้าเข้าคลังตามล็อต — ถ้าเลขล็อตซ้ำกับล็อตเดิมของรายการจะบวกจำนวนเข้าล็อตนั้น
+        ไม่งั้นสร้างล็อตใหม่ จำนวนคงคลังของรายการคือผลรวมของทุกล็อต
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ข้อมูลล็อตที่รับเข้า
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_inventory.ReceiveStockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_inventory.ReceiveStockResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รับของเข้าคลัง (สร้าง/เพิ่มล็อต)
       tags:
       - inventory
   /inventory/{id}/reorder:
@@ -1396,6 +2139,11 @@ paths:
       - description: Parent Location ID
         in: query
         name: parent_id
+        type: string
+      - description: Tree kind for root listing (sample_storage|equipment_storage,
+          default sample_storage)
+        in: query
+        name: kind
         type: string
       produces:
       - application/json
@@ -1578,6 +2326,41 @@ paths:
       summary: รหัสเต็มของ Location (Full Path)
       tags:
       - locations
+  /locations/by-barcode/{code}:
+    get:
+      description: สแกน Location Barcode แล้ว resolve เป็น Location โดยตรง (ใช้ตอนย้าย
+        Sample/วางของ)
+      parameters:
+      - description: Location Barcode (เช่น LOC-BC-00001)
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_location.LocationResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ค้นหา Location จาก Barcode
+      tags:
+      - locations
   /notifications:
     get:
       produces:
@@ -1757,6 +2540,12 @@ paths:
         name: id
         required: true
         type: string
+      - description: ล็อตที่รับเข้า
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_purchaseorder.MarkReceivedRequest'
       produces:
       - application/json
       responses:
@@ -1769,6 +2558,10 @@ paths:
                 data:
                   $ref: '#/definitions/internal_adapters_http_purchaseorder.POResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
         "401":
           description: Unauthorized
           schema:
@@ -1788,7 +2581,8 @@ paths:
       - purchase-orders
   /samples:
     get:
-      description: รองรับ filter ผ่าน query param `status` และ `type`
+      description: รองรับ filter ผ่าน query param `status`, `type`, `barcode_id` (exact),
+        `custodian_user_id`, `location` (บางส่วนของชื่อ Location)
       parameters:
       - description: กรองตามสถานะ
         in: query
@@ -1797,6 +2591,18 @@ paths:
       - description: กรองตามประเภท
         in: query
         name: type
+        type: string
+      - description: กรองด้วย Barcode ID (สแกน, ตรงเป๊ะ)
+        in: query
+        name: barcode_id
+        type: string
+      - description: กรองตามผู้ดูแล
+        in: query
+        name: custodian_user_id
+        type: integer
+      - description: กรองด้วยชื่อ Location (บางส่วน)
+        in: query
+        name: location
         type: string
       produces:
       - application/json
@@ -1888,6 +2694,41 @@ paths:
       security:
       - BearerAuth: []
       summary: ดึงข้อมูลตัวอย่างตาม ID
+      tags:
+      - samples
+  /samples/{id}/barcode:
+    post:
+      description: สร้าง Barcode ID อัตโนมัติ (SMP-BC-xxxxx) ถ้าตัวอย่างยังไม่มี;
+        ถ้ามีอยู่แล้วคืนค่าเดิม
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_sample.SampleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สร้าง Barcode ID ให้ตัวอย่าง
       tags:
       - samples
   /samples/{id}/coc:
@@ -2068,6 +2909,44 @@ paths:
       security:
       - BearerAuth: []
       summary: เปลี่ยนสถานะตัวอย่าง
+      tags:
+      - samples
+  /samples/{id}/sticker:
+    get:
+      description: เรนเดอร์ label PDF ขนาดตาม template (cap|stem|small|medium) พร้อมบาร์โค้ด
+        code128 หรือ qr
+      parameters:
+      - description: Sample ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: cap | stem | small | medium (ค่าเริ่มต้น medium)
+        in: query
+        name: template
+        type: string
+      - description: code128 | qr
+        in: query
+        name: symbology
+        type: string
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: พิมพ์สติกเกอร์บาร์โค้ดของตัวอย่าง (PDF)
       tags:
       - samples
   /samples/{id}/tests:

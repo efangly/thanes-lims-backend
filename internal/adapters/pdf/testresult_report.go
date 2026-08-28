@@ -13,6 +13,7 @@ import (
 type TestResultReportData struct {
 	Result           testresult.TestResult
 	Sample           domainsample.Sample
+	CustodianName    string
 	CoCSteps         []domainsample.CoCStep
 	LocationFullPath string
 }
@@ -78,7 +79,7 @@ func TestResultReport(data TestResultReportData) ([]byte, error) {
 	labelValue("รหัสตัวอย่าง:", data.Sample.ID)
 	labelValue("ชื่อตัวอย่าง:", data.Sample.Name)
 	labelValue("ประเภท:", string(data.Sample.Type))
-	labelValue("ผู้ดูแล:", data.Sample.Custodian)
+	labelValue("ผู้ดูแล:", data.CustodianName)
 	labelValue("สถานที่:", data.LocationFullPath)
 	labelValue("รับเข้าเมื่อ:", data.Sample.ReceivedAt.Format("2006-01-02 15:04"))
 	pdf.Ln(4)

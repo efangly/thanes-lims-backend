@@ -17,6 +17,7 @@ const (
 	ModuleEquipment     Module = "equipment"
 	ModuleInventory     Module = "inventory"
 	ModulePurchaseOrder Module = "purchaseorder"
+	ModuleVendor        Module = "vendor"
 	ModuleDocument      Module = "document"
 	ModuleEnvironment   Module = "environment"
 	ModuleNotification  Module = "notification"

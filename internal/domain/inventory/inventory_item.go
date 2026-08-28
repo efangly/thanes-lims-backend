@@ -17,6 +17,17 @@ type InventoryItem struct {
 	Min           int
 	Max           int
 	DefaultVendor string
+
+	// Asset fields (Phase 7). CustodianUserID is the User responsible for
+	// the item (FK to users, required - see CONTEXT.md "Custodian").
+	// Manufacturer is a plain descriptive string, distinct from VendorID
+	// which FKs the Vendor master record (CONTEXT.md#vendors). LocationID
+	// FKs a Location of Kind equipment_storage, shared with Equipment
+	// (ADR 0007). VendorID and LocationID are optional.
+	CustodianUserID int64
+	Manufacturer    string
+	VendorID        *string
+	LocationID      *string
 }
 
 // Pct and DerivedStatus are computed on read, never stored, so they can

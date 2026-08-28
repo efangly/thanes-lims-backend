@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
@@ -46,7 +47,12 @@ func (uc *RefreshUseCase) Execute(ctx context.Context, refreshTokenRaw, userAgen
 	}
 
 	if stored.Revoked {
-		_ = uc.refresh.RevokeAllForUser(ctx, stored.UserID)
+		// Reuse Detection: a revoked token was presented again - it has leaked.
+		// If revoke-all itself fails the attacker's Token Family survives, so
+		// this must be loud (error log + alerting hook), never swallowed.
+		if err := uc.refresh.RevokeAllForUser(ctx, stored.UserID); err != nil {
+			log.Printf("ERROR refresh: reuse detected for user %d but RevokeAllForUser failed: %v", stored.UserID, err)
+		}
 		return TokenPair{}, shared.ErrUnauthorized
 	}
 	if stored.ExpiresAt.Before(time.Now()) {
@@ -61,8 +67,19 @@ func (uc *RefreshUseCase) Execute(ctx context.Context, refreshTokenRaw, userAgen
 		return TokenPair{}, shared.ErrUnauthorized
 	}
 
-	if err := uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash); err != nil {
+	affected, err := uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash)
+	if err != nil {
 		return TokenPair{}, err
+	}
+	if affected == 0 {
+		// The row was already revoked between FindByTokenHash and here -
+		// another request rotated this same token first (double-spend) or the
+		// token was replayed after rotation. Either way it has leaked: kill
+		// every Session the user holds, same as explicit Reuse Detection.
+		if err := uc.refresh.RevokeAllForUser(ctx, stored.UserID); err != nil {
+			log.Printf("ERROR refresh: double-spend detected for user %d but RevokeAllForUser failed: %v", stored.UserID, err)
+		}
+		return TokenPair{}, shared.ErrUnauthorized
 	}
 
 	perms, err := uc.rbac.FindPermissionsByRoleName(ctx, u.Role.DisplayName())

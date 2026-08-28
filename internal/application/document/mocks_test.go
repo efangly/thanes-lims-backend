@@ -23,6 +23,14 @@ func (m *mockDocRepo) List(ctx context.Context) ([]document.Document, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]document.Document), args.Error(1)
 }
+func (m *mockDocRepo) ListByEquipment(ctx context.Context, equipmentID string) ([]document.Document, error) {
+	args := m.Called(ctx, equipmentID)
+	return args.Get(0).([]document.Document), args.Error(1)
+}
+func (m *mockDocRepo) ListByCalibrationEvent(ctx context.Context, calibrationEventID int64) ([]document.Document, error) {
+	args := m.Called(ctx, calibrationEventID)
+	return args.Get(0).([]document.Document), args.Error(1)
+}
 func (m *mockDocRepo) Update(ctx context.Context, d document.Document) (document.Document, error) {
 	args := m.Called(ctx, d)
 	return args.Get(0).(document.Document), args.Error(1)

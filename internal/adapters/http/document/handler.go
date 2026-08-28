@@ -1,6 +1,8 @@
 package document
 
 import (
+	"strconv"
+
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
@@ -42,6 +44,8 @@ func NewHandler(
 //	@Param			name			formData	string	true	"ชื่อเอกสาร"
 //	@Param			type			formData	string	true	"ประเภทเอกสาร"
 //	@Param			access_level	formData	string	true	"ระดับการเข้าถึง"
+//	@Param			equipment_id	formData	string	false	"ผูกกับอุปกรณ์ (optional)"
+//	@Param			calibration_event_id	formData	integer	false	"ผูกกับรายการสอบเทียบ (optional, สำหรับใบรับรอง)"
 //	@Success		201				{object}	response.Envelope{data=DocumentResponse}
 //	@Failure		400				{object}	response.Envelope
 //	@Failure		401				{object}	response.Envelope
@@ -71,6 +75,11 @@ func (h *Handler) Upload(c fiber.Ctx) error {
 		Content:     f,
 		AccessLevel: accessLevel,
 		UploadedBy:  uploaderName,
+		EquipmentID: c.FormValue("equipment_id"),
+		CalibrationEventID: func() int64 {
+			n, _ := strconv.ParseInt(c.FormValue("calibration_event_id"), 10, 64)
+			return n
+		}(),
 	})
 	if err != nil {
 		return err
@@ -85,11 +94,27 @@ func (h *Handler) Upload(c fiber.Ctx) error {
 //	@Tags			documents
 //	@Produce		json
 //	@Security		BearerAuth
+//	@Param			equipment_id	query	string	false	"กรองเฉพาะเอกสารที่ผูกกับอุปกรณ์นี้"
+//	@Param			calibration_event_id	query	integer	false	"กรองเฉพาะเอกสารที่ผูกกับรายการสอบเทียบนี้"
 //	@Success		200	{object}	response.Envelope{data=[]DocumentResponse}
 //	@Failure		401	{object}	response.Envelope
 //	@Router			/documents [get]
 func (h *Handler) List(c fiber.Ctx) error {
-	docs, err := h.list.Execute(c.Context())
+	var (
+		docs []document.Document
+		err  error
+	)
+	if equipmentID := c.Query("equipment_id"); equipmentID != "" {
+		docs, err = h.list.ExecuteByEquipment(c.Context(), equipmentID)
+	} else if cev := c.Query("calibration_event_id"); cev != "" {
+		var id int64
+		id, err = strconv.ParseInt(cev, 10, 64)
+		if err == nil {
+			docs, err = h.list.ExecuteByCalibrationEvent(c.Context(), id)
+		}
+	} else {
+		docs, err = h.list.Execute(c.Context())
+	}
 	if err != nil {
 		return err
 	}

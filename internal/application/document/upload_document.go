@@ -2,8 +2,10 @@ package document
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/document"
@@ -14,14 +16,16 @@ import (
 )
 
 type UploadDocumentUseCase struct {
-	documents portdocument.Repository
-	history   portdocument.HistoryRepository
-	storage   portfilestorage.FileStorage
-	idgen     portidgen.SequenceGenerator
+	documents    portdocument.Repository
+	history      portdocument.HistoryRepository
+	storage      portfilestorage.FileStorage
+	idgen        portidgen.SequenceGenerator
+	equipment    portdocument.EquipmentDirectory
+	calibrations portdocument.CalibrationEventDirectory
 }
 
-func NewUploadDocumentUseCase(documents portdocument.Repository, history portdocument.HistoryRepository, storage portfilestorage.FileStorage, idgen portidgen.SequenceGenerator) *UploadDocumentUseCase {
-	return &UploadDocumentUseCase{documents: documents, history: history, storage: storage, idgen: idgen}
+func NewUploadDocumentUseCase(documents portdocument.Repository, history portdocument.HistoryRepository, storage portfilestorage.FileStorage, idgen portidgen.SequenceGenerator, equipment portdocument.EquipmentDirectory, calibrations portdocument.CalibrationEventDirectory) *UploadDocumentUseCase {
+	return &UploadDocumentUseCase{documents: documents, history: history, storage: storage, idgen: idgen, equipment: equipment, calibrations: calibrations}
 }
 
 type UploadDocumentInput struct {
@@ -33,6 +37,12 @@ type UploadDocumentInput struct {
 	Content     io.Reader
 	AccessLevel string
 	UploadedBy  string
+	// EquipmentID optionally links the new Document to an Equipment (Phase
+	// 5). Empty = no link.
+	EquipmentID string
+	// CalibrationEventID optionally links the new Document to a
+	// CalibrationEvent (Phase 6, e.g. a certificate). 0 = no link.
+	CalibrationEventID int64
 }
 
 // Execute stores the object under a version-scoped key (docs/{id}/{version}/{filename})
@@ -40,6 +50,33 @@ type UploadDocumentInput struct {
 func (uc *UploadDocumentUseCase) Execute(ctx context.Context, in UploadDocumentInput) (document.Document, error) {
 	if !in.Type.Valid() {
 		return document.Document{}, shared.ErrValidation
+	}
+
+	var equipmentID *string
+	if id := strings.TrimSpace(in.EquipmentID); id != "" {
+		if uc.equipment != nil {
+			if _, err := uc.equipment.FindByID(ctx, id); err != nil {
+				if errors.Is(err, shared.ErrNotFound) {
+					return document.Document{}, fmt.Errorf("%w: equipment %q not found", shared.ErrValidation, id)
+				}
+				return document.Document{}, err
+			}
+		}
+		equipmentID = &id
+	}
+
+	var calibrationEventID *int64
+	if in.CalibrationEventID != 0 {
+		if uc.calibrations != nil {
+			if _, err := uc.calibrations.FindByID(ctx, in.CalibrationEventID); err != nil {
+				if errors.Is(err, shared.ErrNotFound) {
+					return document.Document{}, fmt.Errorf("%w: calibration event %d not found", shared.ErrValidation, in.CalibrationEventID)
+				}
+				return document.Document{}, err
+			}
+		}
+		id := in.CalibrationEventID
+		calibrationEventID = &id
 	}
 
 	seq, err := uc.idgen.Next(ctx, "document", nil)
@@ -57,14 +94,16 @@ func (uc *UploadDocumentUseCase) Execute(ctx context.Context, in UploadDocumentI
 
 	now := time.Now()
 	created, err := uc.documents.Create(ctx, document.Document{
-		ID:          id,
-		Name:        in.Name,
-		Type:        in.Type,
-		Version:     initialVersion,
-		CreatedBy:   in.UploadedBy,
-		IssuedAt:    now,
-		AccessLevel: in.AccessLevel,
-		StorageKey:  key,
+		ID:                 id,
+		Name:               in.Name,
+		Type:               in.Type,
+		Version:            initialVersion,
+		CreatedBy:          in.UploadedBy,
+		IssuedAt:           now,
+		AccessLevel:        in.AccessLevel,
+		StorageKey:         key,
+		EquipmentID:        equipmentID,
+		CalibrationEventID: calibrationEventID,
 	})
 	if err != nil {
 		return document.Document{}, err

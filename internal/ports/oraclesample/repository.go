@@ -6,11 +6,25 @@ package oraclesample
 
 import (
 	"context"
-
-	"github.com/efangly/thanes-lims-backend/internal/domain/sample"
+	"time"
 )
 
+// MirrorSample is the Oracle mirror's own row shape. Since Phase 3 the
+// Postgres Sample carries a Custodian User FK, but the POC ADB has no Users
+// table - the mirror keeps custodian as a free-text name for Select AI's
+// NL->SQL demo questions - so it no longer maps 1:1 onto domain
+// sample.Sample and gets its own struct here.
+type MirrorSample struct {
+	ID         string
+	Name       string
+	Type       string
+	Custodian  string
+	LocationID *string
+	Status     string
+	ReceivedAt time.Time
+}
+
 type Repository interface {
-	Insert(ctx context.Context, s sample.Sample) error
-	FindByID(ctx context.Context, id string) (sample.Sample, error)
+	Insert(ctx context.Context, s MirrorSample) error
+	FindByID(ctx context.Context, id string) (MirrorSample, error)
 }

@@ -20,6 +20,11 @@ import (
 // acceptable trade against invalidating on every rename/move/delete (see
 // ADR 0005). This cache is fail-open: any cache miss or error, including
 // Redis being unreachable, simply falls back to Postgres exactly as before.
+//
+// TODO(location-invalidation): Delete already evicts its own key; a
+// rename/move only takes effect after fullPathTTL and also leaves stale
+// entries for every descendant. If that window becomes unacceptable, evict
+// the subtree (or version-prefix the keys) on rename/move.
 const fullPathTTL = 15 * time.Minute
 
 type CachedRepository struct {
@@ -70,6 +75,14 @@ func (r *CachedRepository) ListChildren(ctx context.Context, parentID *string) (
 	return r.next.ListChildren(ctx, parentID)
 }
 
+func (r *CachedRepository) ListRoots(ctx context.Context, kind location.Kind) ([]location.Location, error) {
+	return r.next.ListRoots(ctx, kind)
+}
+
+func (r *CachedRepository) FindByBarcode(ctx context.Context, code string) (location.Location, error) {
+	return r.next.FindByBarcode(ctx, code)
+}
+
 func (r *CachedRepository) FindChildByName(ctx context.Context, parentID *string, name string) (location.Location, error) {
 	return r.next.FindChildByName(ctx, parentID, name)
 }
@@ -78,6 +91,17 @@ func (r *CachedRepository) HasChildren(ctx context.Context, id string) (bool, er
 	return r.next.HasChildren(ctx, id)
 }
 
+// Delete removes the Location, then best-effort evicts its Full Path cache
+// entry so a deleted Location's path stops being served immediately rather
+// than lingering for up to fullPathTTL. A failed eviction is only logged:
+// this cache is fail-open and the entry expires on its own TTL regardless.
+// (Renames/moves are still only bounded by fullPathTTL - see ADR 0005.)
 func (r *CachedRepository) Delete(ctx context.Context, id string) error {
-	return r.next.Delete(ctx, id)
+	if err := r.next.Delete(ctx, id); err != nil {
+		return err
+	}
+	if err := r.cache.Delete(ctx, fullPathCacheKey(id)); err != nil {
+		log.Printf("cachedlocation: evict full path cache on delete: %v", err)
+	}
+	return nil
 }

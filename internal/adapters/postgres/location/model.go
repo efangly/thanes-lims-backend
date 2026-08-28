@@ -7,11 +7,13 @@ import (
 )
 
 type Model struct {
-	ID        string `gorm:"primaryKey"`
-	ParentID  *string
-	Name      string
-	LevelType string
-	CreatedAt time.Time
+	ID          string `gorm:"primaryKey"`
+	ParentID    *string
+	Name        string
+	Kind        string `gorm:"default:sample_storage"`
+	LevelType   string
+	BarcodeCode *string
+	CreatedAt   time.Time
 	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003).
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

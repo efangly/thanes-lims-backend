@@ -21,6 +21,11 @@ import (
 // cache is fail-open: any cache miss or error, including Redis being
 // unreachable, simply falls back to Postgres exactly as before (see ADR
 // 0006).
+//
+// TODO(rbac-invalidation): when an endpoint that mutates roles or
+// role_permissions is added, it must evict permsCacheKey(roleName) for every
+// affected role (or bump a version prefix) - until then a permission change
+// takes up to permsTTL to take effect.
 const permsTTL = 15 * time.Minute
 
 type CachedRepository struct {
@@ -44,9 +49,14 @@ func (r *CachedRepository) FindPermissionsByRoleName(ctx context.Context, roleNa
 
 	if data, err := r.cache.Get(ctx, key); err == nil {
 		var perms []rbac.Permission
-		if decErr := gob.NewDecoder(bytes.NewReader(data)).Decode(&perms); decErr == nil {
+		decErr := gob.NewDecoder(bytes.NewReader(data)).Decode(&perms)
+		if decErr == nil {
 			return perms, nil
 		}
+		// Corrupt/incompatible cache entry - self-heals by falling through to
+		// Postgres and overwriting, but log it so cache corruption is
+		// diagnosable rather than silent.
+		log.Printf("cachedrbac: decode cached permissions for %q, falling back to Postgres: %v", roleName, decErr)
 	}
 
 	perms, err := r.next.FindPermissionsByRoleName(ctx, roleName)

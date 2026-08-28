@@ -25,6 +25,13 @@ func toDomain(m Model) equipment.Equipment {
 		LastCalibratedAt:   m.LastCalibratedAt,
 		NextCalibrationDue: m.NextCalibrationDue,
 		UsageHours:         m.UsageHours,
+		SerialNumber:       m.SerialNumber,
+		Category:           m.Category,
+		Manufacturer:       m.Manufacturer,
+		Model:              m.Model,
+		InstallationDate:   m.InstallationDate,
+		VendorID:           m.VendorID,
+		LocationID:         m.LocationID,
 	}
 }
 
@@ -36,6 +43,13 @@ func toModel(e equipment.Equipment) Model {
 		LastCalibratedAt:   e.LastCalibratedAt,
 		NextCalibrationDue: e.NextCalibrationDue,
 		UsageHours:         e.UsageHours,
+		SerialNumber:       e.SerialNumber,
+		Category:           e.Category,
+		Manufacturer:       e.Manufacturer,
+		Model:              e.Model,
+		InstallationDate:   e.InstallationDate,
+		VendorID:           e.VendorID,
+		LocationID:         e.LocationID,
 	}
 }
 
@@ -71,9 +85,13 @@ func (r *Repository) List(ctx context.Context) ([]equipment.Equipment, error) {
 	return out, nil
 }
 
+// Update uses Save (not Updates) so cleared optional fields - an emptied
+// SerialNumber, a removed VendorID/LocationID - actually persist; GORM's
+// Updates skips zero/nil values on a struct arg. Callers always load the
+// full Equipment via FindByID first and overlay the changed fields.
 func (r *Repository) Update(ctx context.Context, e equipment.Equipment) (equipment.Equipment, error) {
 	m := toModel(e)
-	if err := r.db.WithContext(ctx).Model(&Model{}).Where("id = ?", e.ID).Updates(&m).Error; err != nil {
+	if err := r.db.WithContext(ctx).Save(&m).Error; err != nil {
 		return equipment.Equipment{}, err
 	}
 	return r.FindByID(ctx, e.ID)

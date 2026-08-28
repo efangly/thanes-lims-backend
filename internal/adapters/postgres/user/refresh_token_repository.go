@@ -64,8 +64,14 @@ func (r *RefreshTokenRepository) FindByTokenHash(ctx context.Context, tokenHash 
 
 // Revoke ignores tokenHash - Postgres already has id, kept only so a
 // caching decorator wrapping this repository can invalidate by hash too.
-func (r *RefreshTokenRepository) Revoke(ctx context.Context, id int64, tokenHash string) error {
-	return r.db.WithContext(ctx).Model(&RefreshTokenModel{}).Where("id = ?", id).Update("revoked", true).Error
+// The "revoked = false" guard makes this a compare-and-swap: two concurrent
+// requests presenting the same token race on this UPDATE and exactly one
+// sees RowsAffected == 1, so the other is detected as a double-spend.
+func (r *RefreshTokenRepository) Revoke(ctx context.Context, id int64, tokenHash string) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&RefreshTokenModel{}).
+		Where("id = ? AND revoked = ?", id, false).
+		Update("revoked", true)
+	return res.RowsAffected, res.Error
 }
 
 func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID int64) error {

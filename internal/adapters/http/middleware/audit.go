@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"time"
@@ -71,15 +72,36 @@ func Audit(logAction *applicationaudit.LogActionUseCase) fiber.Handler {
 			Method:     method,
 			Path:       c.Path(),
 			Resource:   resource,
-			ResourceID: c.Params("id"),
+			ResourceID: auditResourceID(c),
 			StatusCode: statusCode,
 			Metadata:   metadata,
 			CreatedAt:  time.Now(),
 		}
-		_ = logAction.Execute(c.Context(), entry)
+		// Detach from the request context: by the time this runs the client
+		// may have hung up, and a cancelled context would silently drop the
+		// audit write. Keep a bounded timeout so a stuck DB can't leak the
+		// goroutine.
+		writeCtx, cancel := context.WithTimeout(context.WithoutCancel(c.Context()), 5*time.Second)
+		defer cancel()
+		_ = logAction.Execute(writeCtx, entry)
 
 		return handlerErr
 	}
+}
+
+// auditResourceID picks the ID the Audit Entry should point at. For a
+// sub-resource route like /equipment/:id/calibration-schedules/:scheduleId
+// the audited entity is the sub-resource, so the last route param (the most
+// specific one) is the right target - not the parent :id. Falls back to
+// :id, then to "" for param-less collection routes (e.g. a plain POST).
+func auditResourceID(c fiber.Ctx) string {
+	if route := c.Route(); route != nil && len(route.Params) > 0 {
+		last := route.Params[len(route.Params)-1]
+		if v := c.Params(last); v != "" {
+			return v
+		}
+	}
+	return c.Params("id")
 }
 
 // resourceForPath derives an Audit Entry's default Resource from the
@@ -119,6 +141,8 @@ func resourceForPath(path string) string {
 		return "inventory"
 	case "purchase-orders":
 		return "purchaseorder"
+	case "vendors":
+		return "vendor"
 	case "documents":
 		return "document"
 	default:

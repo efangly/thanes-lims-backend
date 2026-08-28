@@ -8,57 +8,79 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLevelType_Valid(t *testing.T) {
-	assert.True(t, location.LevelCabinet.Valid())
-	assert.True(t, location.LevelShelf.Valid())
-	assert.True(t, location.LevelSlot.Valid())
-	assert.True(t, location.LevelSubSlot.Valid())
-	assert.False(t, location.LevelType("shelf-unit").Valid())
+func TestKind_Valid(t *testing.T) {
+	assert.True(t, location.KindSampleStorage.Valid())
+	assert.True(t, location.KindEquipmentStorage.Valid())
+	assert.False(t, location.Kind("warehouse").Valid())
 }
 
-func TestLevelType_Next(t *testing.T) {
-	next, ok := location.LevelCabinet.Next()
+func TestKind_RootLevel(t *testing.T) {
+	lt, ok := location.KindSampleStorage.RootLevel()
 	assert.True(t, ok)
-	assert.Equal(t, location.LevelShelf, next)
+	assert.Equal(t, location.LevelCabinet, lt)
 
-	next, ok = location.LevelShelf.Next()
+	lt, ok = location.KindEquipmentStorage.RootLevel()
 	assert.True(t, ok)
-	assert.Equal(t, location.LevelSlot, next)
+	assert.Equal(t, location.LevelBuilding, lt)
 
-	next, ok = location.LevelSlot.Next()
-	assert.True(t, ok)
-	assert.Equal(t, location.LevelSubSlot, next)
-
-	// sub_slot is the deepest level - it cannot be subdivided further.
-	_, ok = location.LevelSubSlot.Next()
+	_, ok = location.Kind("nope").RootLevel()
 	assert.False(t, ok)
 }
 
-func TestLevelType_CanBeChildOf(t *testing.T) {
-	assert.True(t, location.LevelShelf.CanBeChildOf(location.LevelCabinet))
-	assert.True(t, location.LevelSlot.CanBeChildOf(location.LevelShelf))
-	assert.True(t, location.LevelSubSlot.CanBeChildOf(location.LevelSlot))
+func TestChildLevel(t *testing.T) {
+	next, ok := location.ChildLevel(location.KindSampleStorage, location.LevelCabinet)
+	assert.True(t, ok)
+	assert.Equal(t, location.LevelShelf, next)
 
-	// levels cannot be skipped
-	assert.False(t, location.LevelSlot.CanBeChildOf(location.LevelCabinet))
-	assert.False(t, location.LevelSubSlot.CanBeChildOf(location.LevelCabinet))
+	next, ok = location.ChildLevel(location.KindEquipmentStorage, location.LevelZone)
+	assert.True(t, ok)
+	assert.Equal(t, location.LevelCabinet, next)
 
-	// a Cabinet is always root - nothing can be its parent, and it can't be
-	// anyone's child
-	assert.False(t, location.LevelCabinet.CanBeChildOf(location.LevelCabinet))
+	// deepest level of each kind cannot be subdivided
+	_, ok = location.ChildLevel(location.KindSampleStorage, location.LevelSubSlot)
+	assert.False(t, ok)
+	_, ok = location.ChildLevel(location.KindEquipmentStorage, location.LevelShelf)
+	assert.False(t, ok)
+
+	// "cabinet" is depth 3 in equipment_storage, not the root
+	next, ok = location.ChildLevel(location.KindEquipmentStorage, location.LevelCabinet)
+	assert.True(t, ok)
+	assert.Equal(t, location.LevelShelf, next)
+}
+
+func TestLevelValidForKind(t *testing.T) {
+	assert.True(t, location.LevelValidForKind(location.KindSampleStorage, location.LevelSlot))
+	assert.False(t, location.LevelValidForKind(location.KindSampleStorage, location.LevelBuilding))
+	assert.True(t, location.LevelValidForKind(location.KindEquipmentStorage, location.LevelRoom))
+	assert.False(t, location.LevelValidForKind(location.KindEquipmentStorage, location.LevelSlot))
 }
 
 func TestValidateChild(t *testing.T) {
-	cabinet := location.Location{ID: "LOC-1", LevelType: location.LevelCabinet}
+	cabinet := location.Location{ID: "LOC-1", Kind: location.KindSampleStorage, LevelType: location.LevelCabinet}
 
-	err := location.ValidateChild(cabinet, location.Location{LevelType: location.LevelShelf})
-	assert.NoError(t, err)
+	assert.NoError(t, location.ValidateChild(cabinet, location.Location{
+		Kind: location.KindSampleStorage, LevelType: location.LevelShelf,
+	}))
 
-	err = location.ValidateChild(cabinet, location.Location{LevelType: location.LevelSlot})
-	assert.ErrorIs(t, err, shared.ErrValidation)
+	// level skipped
+	assert.ErrorIs(t, location.ValidateChild(cabinet, location.Location{
+		Kind: location.KindSampleStorage, LevelType: location.LevelSlot,
+	}), shared.ErrValidation)
 
-	err = location.ValidateChild(cabinet, location.Location{LevelType: location.LevelType("bogus")})
-	assert.ErrorIs(t, err, shared.ErrValidation)
+	// kind mismatch
+	assert.ErrorIs(t, location.ValidateChild(cabinet, location.Location{
+		Kind: location.KindEquipmentStorage, LevelType: location.LevelShelf,
+	}), shared.ErrValidation)
+
+	// bogus level
+	assert.ErrorIs(t, location.ValidateChild(cabinet, location.Location{
+		Kind: location.KindSampleStorage, LevelType: location.LevelType("bogus"),
+	}), shared.ErrValidation)
+
+	building := location.Location{ID: "LOC-9", Kind: location.KindEquipmentStorage, LevelType: location.LevelBuilding}
+	assert.NoError(t, location.ValidateChild(building, location.Location{
+		Kind: location.KindEquipmentStorage, LevelType: location.LevelRoom,
+	}))
 }
 
 func TestLocation_IsRoot(t *testing.T) {

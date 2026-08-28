@@ -52,7 +52,9 @@ func TestCachedRefreshTokenRepository_ReadThroughAndInvalidation(t *testing.T) {
 
 	// Revoke invalidates the cache entry, so the read falls through to
 	// Postgres again - which now genuinely has nothing to find.
-	require.NoError(t, sut.Revoke(ctx, created.ID, created.TokenHash))
+	affected, err := sut.Revoke(ctx, created.ID, created.TokenHash)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), affected)
 	_, err = sut.FindByTokenHash(ctx, "integration-hash-1")
 	require.ErrorIs(t, err, shared.ErrNotFound)
 }

@@ -5,9 +5,17 @@ import (
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/location"
 	"github.com/efangly/thanes-lims-backend/internal/domain/sample"
+	"github.com/efangly/thanes-lims-backend/internal/domain/user"
 	portsample "github.com/efangly/thanes-lims-backend/internal/ports/sample"
 	"github.com/stretchr/testify/mock"
 )
+
+type mockCustodianDir struct{ mock.Mock }
+
+func (m *mockCustodianDir) FindByID(ctx context.Context, id int64) (user.User, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(user.User), args.Error(1)
+}
 
 type mockSampleRepo struct{ mock.Mock }
 
@@ -17,6 +25,14 @@ func (m *mockSampleRepo) Create(ctx context.Context, s sample.Sample) (sample.Sa
 }
 func (m *mockSampleRepo) FindByID(ctx context.Context, id string) (sample.Sample, error) {
 	args := m.Called(ctx, id)
+	return args.Get(0).(sample.Sample), args.Error(1)
+}
+func (m *mockSampleRepo) FindByBarcodeID(ctx context.Context, barcodeID string) (sample.Sample, error) {
+	args := m.Called(ctx, barcodeID)
+	return args.Get(0).(sample.Sample), args.Error(1)
+}
+func (m *mockSampleRepo) UpdateBarcodeID(ctx context.Context, sampleID string, barcodeID *string) (sample.Sample, error) {
+	args := m.Called(ctx, sampleID, barcodeID)
 	return args.Get(0).(sample.Sample), args.Error(1)
 }
 func (m *mockSampleRepo) List(ctx context.Context, filter portsample.ListFilter) ([]sample.Sample, error) {
@@ -75,6 +91,14 @@ func (m *mockLocationRepo) GetByID(ctx context.Context, id string) (location.Loc
 func (m *mockLocationRepo) ListChildren(ctx context.Context, parentID *string) ([]location.Location, error) {
 	args := m.Called(ctx, parentID)
 	return args.Get(0).([]location.Location), args.Error(1)
+}
+func (m *mockLocationRepo) ListRoots(ctx context.Context, kind location.Kind) ([]location.Location, error) {
+	args := m.Called(ctx, kind)
+	return args.Get(0).([]location.Location), args.Error(1)
+}
+func (m *mockLocationRepo) FindByBarcode(ctx context.Context, code string) (location.Location, error) {
+	args := m.Called(ctx, code)
+	return args.Get(0).(location.Location), args.Error(1)
 }
 func (m *mockLocationRepo) FindChildByName(ctx context.Context, parentID *string, name string) (location.Location, error) {
 	args := m.Called(ctx, parentID, name)

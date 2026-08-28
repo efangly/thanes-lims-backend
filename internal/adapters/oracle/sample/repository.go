@@ -1,7 +1,7 @@
 // Package sample is the Oracle ADB adapter for the samples mirror table
-// (scripts/oracle/001_schema.sql) used by the chatbot POC. It reuses
-// internal/domain/sample.Sample directly since the Oracle table's columns
-// map 1:1 onto that struct - no separate Oracle-side domain type is needed.
+// (scripts/oracle/001_schema.sql) used by the chatbot POC. It maps onto
+// oraclesample.MirrorSample - the mirror's own row shape, which keeps
+// custodian as a free-text name (the POC ADB has no Users table).
 package sample
 
 import (
@@ -9,8 +9,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/efangly/thanes-lims-backend/internal/domain/sample"
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
+	"github.com/efangly/thanes-lims-backend/internal/ports/oraclesample"
 )
 
 type Repository struct {
@@ -26,13 +26,13 @@ INSERT INTO samples (id, name, sample_type, custodian, location, status, receive
 VALUES (:1, :2, :3, :4, :5, :6, :7)
 `
 
-func (r *Repository) Insert(ctx context.Context, s sample.Sample) error {
+func (r *Repository) Insert(ctx context.Context, s oraclesample.MirrorSample) error {
 	var location string
 	if s.LocationID != nil {
 		location = *s.LocationID
 	}
 	_, err := r.db.ExecContext(ctx, insertSQL,
-		s.ID, s.Name, string(s.Type), s.Custodian, location, string(s.Status), s.ReceivedAt,
+		s.ID, s.Name, s.Type, s.Custodian, location, s.Status, s.ReceivedAt,
 	)
 	return err
 }
@@ -43,25 +43,21 @@ FROM samples
 WHERE id = :1
 `
 
-func (r *Repository) FindByID(ctx context.Context, id string) (sample.Sample, error) {
+func (r *Repository) FindByID(ctx context.Context, id string) (oraclesample.MirrorSample, error) {
 	var (
-		s          sample.Sample
-		sampleType string
-		status     string
+		s        oraclesample.MirrorSample
+		location string
 	)
 
-	var location string
 	row := r.db.QueryRowContext(ctx, selectByIDSQL, id)
-	err := row.Scan(&s.ID, &s.Name, &sampleType, &s.Custodian, &location, &status, &s.ReceivedAt)
+	err := row.Scan(&s.ID, &s.Name, &s.Type, &s.Custodian, &location, &s.Status, &s.ReceivedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return sample.Sample{}, shared.ErrNotFound
+		return oraclesample.MirrorSample{}, shared.ErrNotFound
 	}
 	if err != nil {
-		return sample.Sample{}, err
+		return oraclesample.MirrorSample{}, err
 	}
 
-	s.Type = sample.Type(sampleType)
-	s.Status = sample.Status(status)
 	if location != "" {
 		s.LocationID = &location
 	}

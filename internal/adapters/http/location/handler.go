@@ -5,6 +5,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationlocation "github.com/efangly/thanes-lims-backend/internal/application/location"
+	domainlocation "github.com/efangly/thanes-lims-backend/internal/domain/location"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -14,6 +15,7 @@ type Handler struct {
 	listChildren     *applicationlocation.ListChildrenUseCase
 	getFullPath      *applicationlocation.GetFullPathUseCase
 	deleteLocation   *applicationlocation.DeleteLocationUseCase
+	lookupByBarcode  *applicationlocation.LookupByBarcodeUseCase
 }
 
 func NewHandler(
@@ -22,6 +24,7 @@ func NewHandler(
 	listChildren *applicationlocation.ListChildrenUseCase,
 	getFullPath *applicationlocation.GetFullPathUseCase,
 	deleteLocation *applicationlocation.DeleteLocationUseCase,
+	lookupByBarcode *applicationlocation.LookupByBarcodeUseCase,
 ) *Handler {
 	return &Handler{
 		createCabinet:    createCabinet,
@@ -29,6 +32,7 @@ func NewHandler(
 		listChildren:     listChildren,
 		getFullPath:      getFullPath,
 		deleteLocation:   deleteLocation,
+		lookupByBarcode:  lookupByBarcode,
 	}
 }
 
@@ -55,7 +59,10 @@ func (h *Handler) CreateCabinet(c fiber.Ctx) error {
 		return err
 	}
 
-	l, err := h.createCabinet.Execute(c.Context(), applicationlocation.CreateCabinetInput{Name: req.Name})
+	l, err := h.createCabinet.Execute(c.Context(), applicationlocation.CreateCabinetInput{
+		Name: req.Name,
+		Kind: domainlocation.Kind(req.Kind),
+	})
 	if err != nil {
 		return err
 	}
@@ -71,6 +78,7 @@ func (h *Handler) CreateCabinet(c fiber.Ctx) error {
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			parent_id	query		string	false	"Parent Location ID"
+//	@Param			kind		query		string	false	"Tree kind for root listing (sample_storage|equipment_storage, default sample_storage)"
 //	@Success		200			{object}	response.Envelope{data=[]LocationResponse}
 //	@Failure		401			{object}	response.Envelope
 //	@Router			/locations [get]
@@ -80,7 +88,7 @@ func (h *Handler) ListChildren(c fiber.Ctx) error {
 		parentID = &pid
 	}
 
-	children, err := h.listChildren.Execute(c.Context(), parentID)
+	children, err := h.listChildren.Execute(c.Context(), parentID, domainlocation.Kind(c.Query("kind")))
 	if err != nil {
 		return err
 	}
@@ -152,6 +160,26 @@ func (h *Handler) GetFullPath(c fiber.Ctx) error {
 		return err
 	}
 	return response.OK(c, FullPathResponse{FullPath: fullPath})
+}
+
+// LookupByBarcode godoc
+//
+//	@Summary		ค้นหา Location จาก Barcode
+//	@Description	สแกน Location Barcode แล้ว resolve เป็น Location โดยตรง (ใช้ตอนย้าย Sample/วางของ)
+//	@Tags			locations
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			code	path		string	true	"Location Barcode (เช่น LOC-BC-00001)"
+//	@Success		200		{object}	response.Envelope{data=LocationResponse}
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/locations/by-barcode/{code} [get]
+func (h *Handler) LookupByBarcode(c fiber.Ctx) error {
+	l, err := h.lookupByBarcode.Execute(c.Context(), c.Params("code"))
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toLocationResponse(l))
 }
 
 // Delete godoc

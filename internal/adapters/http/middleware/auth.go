@@ -36,9 +36,18 @@ func Auth(tokens portuser.TokenService) fiber.Handler {
 
 // AuthQuery validates the access token passed as a `token` query parameter,
 // for routes a browser can't attach an Authorization header to - namely the
-// WebSocket upgrade handshake.
+// WebSocket upgrade handshake. A token in the query string leaks into proxy
+// access logs and browser history, so this is deliberately restricted to
+// genuine WebSocket upgrade requests; every other route must use header
+// Bearer auth via Auth. (A short-lived single-use ticket token issued from an
+// authenticated endpoint and exchanged here would remove the leak entirely -
+// tracked as a follow-up.)
 func AuthQuery(tokens portuser.TokenService) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		if !strings.Contains(strings.ToLower(c.Get(fiber.HeaderConnection)), "upgrade") ||
+			!strings.EqualFold(c.Get(fiber.HeaderUpgrade), "websocket") {
+			return fiber.NewError(fiber.StatusUpgradeRequired, "query-string auth is only valid for websocket upgrades")
+		}
 		token := fiber.Query[string](c, "token")
 		if token == "" {
 			return fiber.NewError(fiber.StatusUnauthorized, "missing token query parameter")

@@ -23,14 +23,14 @@ func TestCachedRepository_FullPath_ServesFromCacheAfterFirstRead(t *testing.T) {
 	sut := cachedlocation.NewCachedRepository(postgresRepo, c)
 
 	cabinet, err := sut.Create(ctx, domainlocation.Location{
-		ID: "LOC-90001", Name: "Fridge-Cache-Test", LevelType: domainlocation.LevelCabinet,
+		ID: "LOC-90001", Name: "Fridge-Cache-Test", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelCabinet,
 	})
 	require.NoError(t, err)
 	cabinetID := cabinet.ID
 
 	shelfID := "LOC-90002"
 	_, err = sut.Create(ctx, domainlocation.Location{
-		ID: shelfID, ParentID: &cabinetID, Name: "Shelf-Cache-Test", LevelType: domainlocation.LevelShelf,
+		ID: shelfID, ParentID: &cabinetID, Name: "Shelf-Cache-Test", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelShelf,
 	})
 	require.NoError(t, err)
 

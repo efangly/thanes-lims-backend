@@ -22,5 +22,6 @@ func (uc *LogoutUseCase) Execute(ctx context.Context, refreshTokenRaw string) er
 		// Already gone/invalid - logout is idempotent, nothing to do.
 		return nil
 	}
-	return uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash)
+	_, err = uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash)
+	return err
 }

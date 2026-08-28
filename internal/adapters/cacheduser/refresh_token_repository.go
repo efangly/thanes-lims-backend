@@ -80,22 +80,25 @@ func (r *CachedRefreshTokenRepository) FindByTokenHash(ctx context.Context, toke
 // cache entry. The cache delete's error is propagated rather than swallowed:
 // per ADR 0005 an un-invalidated cache entry for a revoked token is exactly
 // the risk this whole cache is designed to avoid.
-func (r *CachedRefreshTokenRepository) Revoke(ctx context.Context, id int64, tokenHash string) error {
-	if err := r.next.Revoke(ctx, id, tokenHash); err != nil {
-		return err
+func (r *CachedRefreshTokenRepository) Revoke(ctx context.Context, id int64, tokenHash string) (int64, error) {
+	affected, err := r.next.Revoke(ctx, id, tokenHash)
+	if err != nil {
+		return affected, err
 	}
 	if err := r.cache.Delete(ctx, refreshTokenCacheKey(tokenHash)); err != nil {
-		return fmt.Errorf("cacheduser: invalidate on revoke: %w", err)
+		return affected, fmt.Errorf("cacheduser: invalidate on revoke: %w", err)
 	}
-	return nil
+	return affected, nil
 }
 
 // RevokeAllForUser reads every active token hash for userID before revoking
 // in Postgres (see ADR 0005 - no separate user->tokens index is kept in
 // Redis, since this is a rare security-path operation, not a hot path), then
-// deletes each cache entry. Individual cache-delete failures are logged but
-// don't abort the loop or fail the call: Postgres has already revoked every
-// row, and each surviving stale cache entry is still bounded by its own TTL.
+// deletes each cache entry. This is a security path (Reuse Detection / global
+// logout): every cache entry is attempted, but if any delete fails the call
+// returns an error, since a surviving cache entry for a revoked token would
+// keep serving Revoked=false for up to its whole TTL and silently disable
+// Reuse Detection for that token. The caller must surface/alert on this.
 func (r *CachedRefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID int64) error {
 	hashes, err := r.next.FindTokenHashesByUserID(ctx, userID)
 	if err != nil {
@@ -104,10 +107,19 @@ func (r *CachedRefreshTokenRepository) RevokeAllForUser(ctx context.Context, use
 	if err := r.next.RevokeAllForUser(ctx, userID); err != nil {
 		return err
 	}
+	var failed int
+	var firstErr error
 	for _, hash := range hashes {
 		if err := r.cache.Delete(ctx, refreshTokenCacheKey(hash)); err != nil {
 			log.Printf("cacheduser: invalidate on revoke-all: %v", err)
+			failed++
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
+	}
+	if firstErr != nil {
+		return fmt.Errorf("cacheduser: invalidate on revoke-all: %d/%d cache entries not deleted: %w", failed, len(hashes), firstErr)
 	}
 	return nil
 }

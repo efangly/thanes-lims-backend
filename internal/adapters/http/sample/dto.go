@@ -7,18 +7,23 @@ import (
 )
 
 type CreateSampleRequest struct {
-	Name       string  `json:"name" validate:"required"`
-	Type       string  `json:"type" validate:"required"`
-	Custodian  string  `json:"custodian" validate:"required"`
-	LocationID *string `json:"location_id"`
+	Name            string  `json:"name" validate:"required"`
+	Type            string  `json:"type" validate:"required"`
+	CustodianUserID int64   `json:"custodian_user_id" validate:"required"`
+	LocationID      *string `json:"location_id"`
+	BarcodeID       *string `json:"barcode_id"`
+	Description     string  `json:"description"`
 }
 
 type UpdateStatusRequest struct {
 	Status string `json:"status" validate:"required"`
 }
 
+// AssignLocationRequest carries the put-away target either directly by
+// LocationID or by a scanned LocationBarcodeCode - exactly one must be set.
 type AssignLocationRequest struct {
-	LocationID string `json:"location_id" validate:"required"`
+	LocationID          string `json:"location_id"`
+	LocationBarcodeCode string `json:"location_barcode_code"`
 }
 
 type AppendCoCStepRequest struct {
@@ -27,24 +32,28 @@ type AppendCoCStepRequest struct {
 }
 
 type SampleResponse struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	Type       string    `json:"type"`
-	Custodian  string    `json:"custodian"`
-	LocationID *string   `json:"location_id"`
-	Status     string    `json:"status"`
-	ReceivedAt time.Time `json:"received_at"`
+	ID              string    `json:"id"`
+	Name            string    `json:"name"`
+	Type            string    `json:"type"`
+	CustodianUserID int64     `json:"custodian_user_id"`
+	LocationID      *string   `json:"location_id"`
+	Status          string    `json:"status"`
+	ReceivedAt      time.Time `json:"received_at"`
+	BarcodeID       *string   `json:"barcode_id"`
+	Description     string    `json:"description"`
 }
 
 func toSampleResponse(s sample.Sample) SampleResponse {
 	return SampleResponse{
-		ID:         s.ID,
-		Name:       s.Name,
-		Type:       string(s.Type),
-		Custodian:  s.Custodian,
-		LocationID: s.LocationID,
-		Status:     string(s.Status),
-		ReceivedAt: s.ReceivedAt,
+		ID:              s.ID,
+		Name:            s.Name,
+		Type:            string(s.Type),
+		CustodianUserID: s.CustodianUserID,
+		LocationID:      s.LocationID,
+		Status:          string(s.Status),
+		ReceivedAt:      s.ReceivedAt,
+		BarcodeID:       s.BarcodeID,
+		Description:     s.Description,
 	}
 }
 

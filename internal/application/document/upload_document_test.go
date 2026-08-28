@@ -24,7 +24,7 @@ func TestUploadDocumentUseCase_CallsFileStorageWithVersionedKey(t *testing.T) {
 	})).Return(document.Document{ID: "DOC-00001", Version: "1", StorageKey: "docs/DOC-00001/1/sop.pdf"}, nil)
 	history.On("Append", mock.Anything, mock.AnythingOfType("document.DocHistory")).Return(document.DocHistory{}, nil)
 
-	uc := applicationdocument.NewUploadDocumentUseCase(docs, history, storage, idgen)
+	uc := applicationdocument.NewUploadDocumentUseCase(docs, history, storage, idgen, nil, nil)
 	d, err := uc.Execute(context.Background(), applicationdocument.UploadDocumentInput{
 		Name: "SOP Sample Handling", Type: document.TypeSOP, Filename: "sop.pdf",
 		ContentType: "application/pdf", Size: 1024, Content: bytes.NewReader([]byte("x")), UploadedBy: "priya",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/efangly/thanes-lims-backend/internal/domain/location"
 	"github.com/efangly/thanes-lims-backend/internal/domain/sample"
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
 	portlocation "github.com/efangly/thanes-lims-backend/internal/ports/location"
@@ -19,6 +20,17 @@ func NewAssignLocationUseCase(samples portsample.SampleRepository, locations por
 	return &AssignLocationUseCase{samples: samples, locations: locations}
 }
 
+// ExecuteByBarcode resolves a scanned Location Barcode to its Location id
+// and then assigns it exactly like Execute - lets a caller move a Sample by
+// scanning the destination shelf instead of passing its LocationID.
+func (uc *AssignLocationUseCase) ExecuteByBarcode(ctx context.Context, sampleID, barcodeCode string) (sample.Sample, error) {
+	loc, err := uc.locations.FindByBarcode(ctx, barcodeCode)
+	if err != nil {
+		return sample.Sample{}, err
+	}
+	return uc.Execute(ctx, sampleID, loc.ID)
+}
+
 // Execute assigns sampleID to locationID - its put-away spot. locationID
 // must be a Leaf Location (no children) with no other active Sample already
 // occupying it. See CONTEXT.md#storage-location.
@@ -27,8 +39,12 @@ func (uc *AssignLocationUseCase) Execute(ctx context.Context, sampleID, location
 		return sample.Sample{}, err
 	}
 
-	if _, err := uc.locations.GetByID(ctx, locationID); err != nil {
+	loc, err := uc.locations.GetByID(ctx, locationID)
+	if err != nil {
 		return sample.Sample{}, err
+	}
+	if loc.Kind != "" && loc.Kind != location.KindSampleStorage {
+		return sample.Sample{}, fmt.Errorf("%w: location is not sample storage", shared.ErrValidation)
 	}
 
 	hasChildren, err := uc.locations.HasChildren(ctx, locationID)

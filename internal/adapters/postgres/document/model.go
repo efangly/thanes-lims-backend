@@ -7,15 +7,17 @@ import (
 )
 
 type Model struct {
-	ID          string `gorm:"primaryKey"`
-	Name        string
-	Type        string
-	Version     string
-	CreatedBy   string
-	IssuedAt    time.Time
-	AccessLevel string
-	Locked      bool
-	StorageKey  string
+	ID                 string `gorm:"primaryKey"`
+	Name               string
+	Type               string
+	Version            string
+	CreatedBy          string
+	IssuedAt           time.Time
+	AccessLevel        string
+	Locked             bool
+	StorageKey         string
+	EquipmentID        *string
+	CalibrationEventID *int64
 	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003); no
 	// DeleteDocument use case exists yet, but the column is in place.
 	DeletedAt gorm.DeletedAt `gorm:"index"`

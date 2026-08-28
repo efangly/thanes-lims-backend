@@ -130,7 +130,7 @@ Body: { "location_id": "LOC-00042" }
 3. POST /locations/LOC-00051/children       { prefix: "Slot", count: 10 }
    → [LOC-00053 "Slot-1", ..., LOC-00062 "Slot-10"]
 
-4. POST /samples                            { name: "...", type: "blood", custodian: "..." }
+4. POST /samples                            { name: "...", type: "blood", custodian_user_id: 3 }
    → SMP-2569-00099 (location_id: null)
 
 5. PATCH /samples/SMP-2569-00099/location   { location_id: "LOC-00053" }

@@ -3,6 +3,7 @@ package purchaseorder
 import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	domainuser "github.com/efangly/thanes-lims-backend/internal/domain/user"
 	"github.com/gofiber/fiber/v3"
@@ -102,20 +103,34 @@ func (h *Handler) Approve(c fiber.Ctx) error {
 //	@Tags			purchase-orders
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			id	path		string	true	"Purchase Order ID"
+//	@Param			id		path		string				true	"Purchase Order ID"
+//	@Param			request	body		MarkReceivedRequest	true	"ล็อตที่รับเข้า"
 //	@Success		200	{object}	response.Envelope{data=POResponse}
+//	@Failure		400	{object}	response.Envelope
 //	@Failure		401	{object}	response.Envelope
 //	@Failure		404	{object}	response.Envelope
 //	@Failure		409	{object}	response.Envelope
 //	@Router			/purchase-orders/{id}/receive [patch]
 func (h *Handler) MarkReceived(c fiber.Ctx) error {
+	var req MarkReceivedRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 	before, err := h.get.Execute(c.Context(), id)
 	if err != nil {
 		return err
 	}
 
-	po, err := h.markReceived.Execute(c.Context(), id)
+	po, err := h.markReceived.Execute(c.Context(), applicationpurchaseorder.MarkReceivedInput{
+		ID:         id,
+		LotNo:      req.LotNo,
+		ExpireDate: req.ExpireDate,
+	})
 	if err != nil {
 		return err
 	}

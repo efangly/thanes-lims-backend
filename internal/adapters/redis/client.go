@@ -33,6 +33,17 @@ func New(ctx context.Context, redisURL string) (*Adapter, error) {
 	return &Adapter{client: client}, nil
 }
 
+// Ping verifies Redis is reachable. It's used by the /health endpoint so
+// external monitoring can alert on a Redis outage: per ADR 0005 the refresh
+// path is fail-closed, so a Redis outage forces every user to re-login once
+// their access token expires (~15m) and must be treated as an incident.
+func (a *Adapter) Ping(ctx context.Context) error {
+	if err := a.client.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("redis: ping: %w", err)
+	}
+	return nil
+}
+
 func (a *Adapter) Close() error {
 	return a.client.Close()
 }

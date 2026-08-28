@@ -89,7 +89,7 @@ func (a *Adapter) parse(tokenStr string, secret []byte) (portuser.Claims, error)
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return secret, nil
-	})
+	}, jwtlib.WithValidMethods([]string{"HS256"}))
 	if err != nil || !token.Valid {
 		return portuser.Claims{}, fmt.Errorf("jwt: invalid token: %w", err)
 	}

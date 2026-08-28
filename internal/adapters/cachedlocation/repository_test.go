@@ -32,6 +32,14 @@ func (m *mockRepo) ListChildren(ctx context.Context, parentID *string) ([]locati
 	args := m.Called(ctx, parentID)
 	return args.Get(0).([]location.Location), args.Error(1)
 }
+func (m *mockRepo) ListRoots(ctx context.Context, kind location.Kind) ([]location.Location, error) {
+	args := m.Called(ctx, kind)
+	return args.Get(0).([]location.Location), args.Error(1)
+}
+func (m *mockRepo) FindByBarcode(ctx context.Context, code string) (location.Location, error) {
+	args := m.Called(ctx, code)
+	return args.Get(0).(location.Location), args.Error(1)
+}
 func (m *mockRepo) FindChildByName(ctx context.Context, parentID *string, name string) (location.Location, error) {
 	args := m.Called(ctx, parentID, name)
 	return args.Get(0).(location.Location), args.Error(1)

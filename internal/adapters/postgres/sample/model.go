@@ -7,13 +7,15 @@ import (
 )
 
 type Model struct {
-	ID         string `gorm:"primaryKey"`
-	Name       string
-	Type       string
-	Custodian  string
-	LocationID *string
-	Status     string
-	ReceivedAt time.Time
+	ID              string `gorm:"primaryKey"`
+	Name            string
+	Type            string
+	CustodianUserID int64
+	LocationID      *string
+	Status          string
+	ReceivedAt      time.Time
+	BarcodeID       *string
+	Description     string
 	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003) - GORM
 	// automatically excludes non-NULL rows from Find/First and stamps this
 	// instead of removing the row on Delete.

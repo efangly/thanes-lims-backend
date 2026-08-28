@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	_ "github.com/efangly/thanes-lims-backend/docs"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedenvironment"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedlocation"
@@ -18,6 +20,7 @@ import (
 	httpsample "github.com/efangly/thanes-lims-backend/internal/adapters/http/sample"
 	httptestresult "github.com/efangly/thanes-lims-backend/internal/adapters/http/testresult"
 	httpuser "github.com/efangly/thanes-lims-backend/internal/adapters/http/user"
+	httpvendor "github.com/efangly/thanes-lims-backend/internal/adapters/http/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
@@ -33,6 +36,7 @@ import (
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
 	postgrestestresult "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/testresult"
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
+	postgresvendor "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/vendor"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
@@ -44,6 +48,7 @@ import (
 	applicationsample "github.com/efangly/thanes-lims-backend/internal/application/sample"
 	applicationtestresult "github.com/efangly/thanes-lims-backend/internal/application/testresult"
 	applicationuser "github.com/efangly/thanes-lims-backend/internal/application/user"
+	applicationvendor "github.com/efangly/thanes-lims-backend/internal/application/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/config"
 	"github.com/efangly/thanes-lims-backend/internal/ports/cache"
 	"github.com/gofiber/contrib/v3/swaggo"
@@ -57,8 +62,19 @@ import (
 // auto-reorder job so main can run it on a schedule alongside the HTTP
 // server, since it's composed from the same repositories wired up here.
 func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+	// /health also probes Redis: per ADR 0005 the refresh path is fail-closed,
+	// so a Redis outage logs every user out within one access-token TTL (~15m).
+	// External monitoring must be able to alert on that before users notice.
 	v1.Get("/health", func(c fiber.Ctx) error {
-		return response.OK(c, fiber.Map{"status": "ok"})
+		if pinger, ok := redisCache.(interface {
+			Ping(context.Context) error
+		}); ok {
+			if err := pinger.Ping(c.Context()); err != nil {
+				return c.Status(fiber.StatusServiceUnavailable).
+					JSON(fiber.Map{"status": "degraded", "redis": err.Error()})
+			}
+		}
+		return response.OK(c, fiber.Map{"status": "ok", "redis": "ok"})
 	})
 
 	v1.Get("/swagger/*", swaggo.New(swaggo.Config{}))
@@ -88,13 +104,15 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	locationRepo := cachedlocation.NewCachedRepository(postgreslocation.New(gdb), redisCache)
 
 	sampleHandler := httpsample.NewHandler(
-		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, idgen),
+		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, userRepo, idgen),
 		applicationsample.NewListSamplesUseCase(sampleRepo),
 		applicationsample.NewGetSampleUseCase(sampleRepo),
 		applicationsample.NewUpdateSampleStatusUseCase(sampleRepo, cocRepo),
 		applicationsample.NewListCoCStepsUseCase(cocRepo),
 		applicationsample.NewAppendCoCStepUseCase(cocRepo),
 		applicationsample.NewAssignLocationUseCase(sampleRepo, locationRepo),
+		applicationsample.NewGenerateBarcodeUseCase(sampleRepo, idgen),
+		applicationsample.NewStickerDataUseCase(sampleRepo, userRepo, locationRepo),
 	)
 	httpsample.RegisterRoutes(v1, sampleHandler, tokens)
 
@@ -104,8 +122,18 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationlocation.NewListChildrenUseCase(locationRepo),
 		applicationlocation.NewGetFullPathUseCase(locationRepo),
 		applicationlocation.NewDeleteLocationUseCase(locationRepo, sampleRepo),
+		applicationlocation.NewLookupByBarcodeUseCase(locationRepo),
 	)
 	httplocation.RegisterRoutes(v1, locationHandler, tokens)
+
+	vendorRepo := postgresvendor.New(gdb)
+	vendorHandler := httpvendor.NewHandler(
+		applicationvendor.NewCreateVendorUseCase(vendorRepo, idgen),
+		applicationvendor.NewListVendorsUseCase(vendorRepo),
+		applicationvendor.NewGetVendorUseCase(vendorRepo),
+		applicationvendor.NewUpdateVendorUseCase(vendorRepo),
+	)
+	httpvendor.RegisterRoutes(v1, vendorHandler, tokens)
 
 	notificationRepo := postgresnotification.New(gdb)
 	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
@@ -117,31 +145,39 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationtestresult.NewApproveResultUseCase(testResultRepo, cocRepo, notifier),
 		applicationtestresult.NewListTestResultsUseCase(testResultRepo),
 		applicationtestresult.NewGetTestResultUseCase(testResultRepo),
-		applicationtestresult.NewGenerateReportUseCase(testResultRepo, sampleRepo, cocRepo, locationRepo),
+		applicationtestresult.NewGenerateReportUseCase(testResultRepo, sampleRepo, cocRepo, locationRepo, userRepo),
 	)
 	httptestresult.RegisterRoutes(v1, testResultHandler, tokens)
 
 	equipmentRepo := postgresequipment.New(gdb)
 	calibrationRepo := postgresequipment.NewCalibrationRepository(gdb)
+	calibrationScheduleRepo := postgresequipment.NewScheduleRepository(gdb)
 	equipmentHandler := httpequipment.NewHandler(
-		applicationequipment.NewCreateEquipmentUseCase(equipmentRepo, idgen),
+		applicationequipment.NewCreateEquipmentUseCase(equipmentRepo, idgen, vendorRepo, locationRepo),
+		applicationequipment.NewUpdateEquipmentUseCase(equipmentRepo, vendorRepo, locationRepo),
 		applicationequipment.NewListEquipmentUseCase(equipmentRepo),
 		applicationequipment.NewGetEquipmentUseCase(equipmentRepo),
-		applicationequipment.NewRecordCalibrationUseCase(equipmentRepo, calibrationRepo),
+		applicationequipment.NewRecordCalibrationUseCase(equipmentRepo, calibrationRepo, calibrationScheduleRepo),
 		applicationequipment.NewListCalibrationEventsUseCase(calibrationRepo),
+		applicationequipment.NewCalibrationScheduleUseCase(equipmentRepo, calibrationScheduleRepo),
+		applicationequipment.NewSearchCalibrationResultsUseCase(calibrationRepo),
 	)
 	httpequipment.RegisterRoutes(v1, equipmentHandler, tokens)
 
 	inventoryRepo := postgresinventory.New(gdb)
+	inventoryLotRepo := postgresinventory.NewLotRepository(gdb)
 	purchaseOrderRepo := postgrespurchaseorder.New(gdb)
 
 	reorderUseCase := applicationpurchaseorder.NewCreateFromLowStockUseCase(purchaseOrderRepo, inventoryRepo, idgen)
 
 	inventoryHandler := httpinventory.NewHandler(
-		applicationinventory.NewCreateItemUseCase(inventoryRepo, idgen),
+		applicationinventory.NewCreateItemUseCase(inventoryRepo, idgen, userRepo, vendorRepo, locationRepo),
 		applicationinventory.NewListItemsUseCase(inventoryRepo),
 		applicationinventory.NewGetItemUseCase(inventoryRepo),
-		applicationinventory.NewUpdateQuantityUseCase(inventoryRepo, notifier),
+		applicationinventory.NewUpdateItemUseCase(inventoryRepo, userRepo, vendorRepo, locationRepo),
+		applicationinventory.NewReceiveStockUseCase(inventoryRepo, inventoryLotRepo, idgen),
+		applicationinventory.NewIssueStockUseCase(inventoryRepo, inventoryLotRepo),
+		applicationinventory.NewListLotsUseCase(inventoryRepo, inventoryLotRepo),
 		applicationinventory.NewUpdateDefaultVendorUseCase(inventoryRepo),
 		reorderUseCase,
 	)
@@ -153,7 +189,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationpurchaseorder.NewListPOsUseCase(purchaseOrderRepo),
 		applicationpurchaseorder.NewGetPOUseCase(purchaseOrderRepo),
 		applicationpurchaseorder.NewApprovePOUseCase(purchaseOrderRepo),
-		applicationpurchaseorder.NewMarkReceivedUseCase(purchaseOrderRepo, inventoryRepo),
+		applicationpurchaseorder.NewMarkReceivedUseCase(purchaseOrderRepo, inventoryRepo, inventoryLotRepo, idgen),
 	)
 	httppurchaseorder.RegisterRoutes(v1, purchaseOrderHandler, tokens)
 
@@ -161,7 +197,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 	docHistoryRepo := postgresdocument.NewHistoryRepository(gdb)
 
 	documentHandler := httpdocument.NewHandler(
-		applicationdocument.NewUploadDocumentUseCase(documentRepo, docHistoryRepo, fileStorage, idgen),
+		applicationdocument.NewUploadDocumentUseCase(documentRepo, docHistoryRepo, fileStorage, idgen, equipmentRepo, calibrationRepo),
 		applicationdocument.NewCreateNewVersionUseCase(documentRepo, docHistoryRepo, fileStorage),
 		applicationdocument.NewSetLockUseCase(documentRepo),
 		applicationdocument.NewListDocumentsUseCase(documentRepo),

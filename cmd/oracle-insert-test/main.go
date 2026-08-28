@@ -12,9 +12,10 @@ import (
 	"time"
 
 	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
-	oraclesample "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/sample"
+	oraclesampleadapter "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/sample"
 	"github.com/efangly/thanes-lims-backend/internal/config"
 	"github.com/efangly/thanes-lims-backend/internal/domain/sample"
+	"github.com/efangly/thanes-lims-backend/internal/ports/oraclesample"
 )
 
 func main() {
@@ -32,19 +33,19 @@ func main() {
 	}
 	defer sdb.Close()
 
-	repo := oraclesample.New(sdb)
+	repo := oraclesampleadapter.New(sdb)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	locationID := "N/A"
-	want := sample.Sample{
+	want := oraclesample.MirrorSample{
 		ID:         fmt.Sprintf("SMP-TEST-%d", time.Now().Unix()),
 		Name:       "oracle-insert-test smoke test",
-		Type:       sample.TypeBlood,
+		Type:       string(sample.TypeBlood),
 		Custodian:  "cmd/oracle-insert-test",
 		LocationID: &locationID,
-		Status:     sample.StatusPending,
+		Status:     string(sample.StatusPending),
 		ReceivedAt: time.Now().Truncate(time.Second),
 	}
 

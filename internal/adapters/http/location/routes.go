@@ -13,6 +13,7 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	locations := r.Group("/locations", authGuard)
 	locations.Post("/", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionCreate), h.CreateCabinet)
 	locations.Get("/", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionView), h.ListChildren)
+	locations.Get("/by-barcode/:code", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionView), h.LookupByBarcode)
 	locations.Post("/:id/children", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionCreate), h.GenerateChildren)
 	locations.Get("/:id/full-path", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionView), h.GetFullPath)
 	locations.Delete("/:id", middleware.RequirePermission(rbac.ModuleLocation, rbac.ActionDelete), h.Delete)

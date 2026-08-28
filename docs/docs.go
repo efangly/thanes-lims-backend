@@ -66,9 +66,107 @@ const docTemplate = `{
                 }
             }
         },
+        "/audit/logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "รองรับกรองด้วย ` + "`" + `actor_id` + "`" + `, ` + "`" + `resource` + "`" + `, ` + "`" + `method` + "`" + `, ` + "`" + `from` + "`" + `, ` + "`" + `to` + "`" + ` และแบ่งหน้าด้วย ` + "`" + `page` + "`" + `/` + "`" + `limit` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit"
+                ],
+                "summary": "รายการ audit log (JSON)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "กรองตาม Actor ID",
+                        "name": "actor_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองตาม resource",
+                        "name": "resource",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองตาม HTTP method",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "วันที่เริ่มต้น (RFC3339 หรือ YYYY-MM-DD)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "วันที่สิ้นสุด (RFC3339 หรือ YYYY-MM-DD)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "หน้า",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "จำนวนต่อหน้า",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_audit.EntryResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
-                "description": "ตรวจสอบอีเมล/รหัสผ่าน แล้วคืน access/refresh token pair",
+                "description": "ตรวจสอบอีเมล/รหัสผ่าน คืน access token ใน body และตั้ง refresh token เป็น httpOnly cookie",
                 "consumes": [
                     "application/json"
                 ],
@@ -102,7 +200,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_http_user.TokenPairResponse"
+                                            "$ref": "#/definitions/internal_adapters_http_user.AccessTokenResponse"
                                         }
                                     }
                                 }
@@ -126,7 +224,7 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "description": "เพิกถอน refresh token ที่ระบุ",
+                "description": "เพิกถอน refresh token ของ session ปัจจุบัน (จาก cookie หรือ body) แล้วล้าง cookie",
                 "consumes": [
                     "application/json"
                 ],
@@ -139,10 +237,9 @@ const docTemplate = `{
                 "summary": "ออกจากระบบ",
                 "parameters": [
                     {
-                        "description": "Refresh token ที่ต้องการเพิกถอน",
+                        "description": "Refresh token ที่ต้องการเพิกถอน (ใช้เมื่อไม่มี cookie)",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/internal_adapters_http_user.RefreshRequest"
                         }
@@ -164,9 +261,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/logout-all": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "เพิกถอน refresh token ของทุก session ของผู้ใช้ปัจจุบัน แล้วล้าง cookie",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "ออกจากระบบทุกอุปกรณ์",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh": {
             "post": {
-                "description": "แลก refresh token เก่าเป็น access/refresh token pair ใหม่",
+                "description": "แลก refresh token เก่า (จาก cookie หรือ body) เป็น access token ใหม่ และหมุน refresh token cookie",
                 "consumes": [
                     "application/json"
                 ],
@@ -179,10 +307,9 @@ const docTemplate = `{
                 "summary": "ต่ออายุ token",
                 "parameters": [
                     {
-                        "description": "Refresh token",
+                        "description": "Refresh token (ใช้เมื่อไม่มี cookie)",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/internal_adapters_http_user.RefreshRequest"
                         }
@@ -222,6 +349,84 @@ const docTemplate = `{
                 }
             }
         },
+        "/calibration-results": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "รายการผลสอบเทียบข้ามทุกอุปกรณ์ พร้อม search bar (requirement 2.2.1)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "ค้นหาผลการสอบเทียบทั้งหมด",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ค้นหา (รหัส/ชื่ออุปกรณ์, ผู้สอบเทียบ, ประเภท, หมายเหตุ)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองตามอุปกรณ์",
+                        "name": "equipment_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "pass หรือ fail",
+                        "name": "result",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "วันสอบเทียบตั้งแต่ (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "วันสอบเทียบถึง (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_equipment.CalibrationEventResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/documents": {
             "get": {
                 "security": [
@@ -236,6 +441,20 @@ const docTemplate = `{
                     "documents"
                 ],
                 "summary": "รายการเอกสารทั้งหมด",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "กรองเฉพาะเอกสารที่ผูกกับอุปกรณ์นี้",
+                        "name": "equipment_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "กรองเฉพาะเอกสารที่ผูกกับรายการสอบเทียบนี้",
+                        "name": "calibration_event_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -310,6 +529,18 @@ const docTemplate = `{
                         "name": "access_level",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ผูกกับอุปกรณ์ (optional)",
+                        "name": "equipment_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ผูกกับรายการสอบเทียบ (optional, สำหรับใบรับรอง)",
+                        "name": "calibration_event_id",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1031,6 +1262,80 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "แก้ไขแบบบางส่วน — ส่งเฉพาะ field ที่ต้องการเปลี่ยน (วันสอบเทียบแก้ผ่าน /calibration เท่านั้น)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "แก้ไขข้อมูลอุปกรณ์",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Equipment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ข้อมูลที่แก้ไข",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_equipment.UpdateEquipmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_equipment.EquipmentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
             }
         },
         "/equipment/{id}/calibration": {
@@ -1155,6 +1460,244 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/equipment/{id}/calibration-schedules": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "รายการตารางสอบเทียบของอุปกรณ์",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Equipment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "เพิ่มตารางสอบเทียบให้อุปกรณ์",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Equipment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ข้อมูลตารางสอบเทียบ",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_equipment.CreateCalibrationScheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/equipment/{id}/calibration-schedules/{scheduleId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "ลบตารางสอบเทียบ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Equipment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Calibration Schedule ID",
+                        "name": "scheduleId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "แก้ไขตารางสอบเทียบ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Equipment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Calibration Schedule ID",
+                        "name": "scheduleId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ข้อมูลที่แก้ไข",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_equipment.UpdateCalibrationScheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
@@ -1322,6 +1865,80 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "แก้ไขบางส่วน (partial) — จำนวนคงคลังมาจากการรับล็อต (/receive), ผู้ขายเริ่มต้นแก้ผ่าน /default-vendor",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "แก้ไขข้อมูลรายการวัสดุคงคลัง",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ข้อมูลที่แก้ไข",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_inventory.UpdateItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_inventory.ItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
             }
         },
         "/inventory/{id}/default-vendor": {
@@ -1400,14 +2017,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/inventory/{id}/quantity": {
-            "patch": {
+        "/inventory/{id}/issue": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "แจ้งเตือนอัตโนมัติหากจำนวนต่ำกว่า min",
+                "description": "เบิกออกตามล็อตที่ผู้ใช้เลือกเอง (ไม่ใช่ FEFO อัตโนมัติ) — ถ้าจำนวนที่เบิกเกินยอดคงเหลือของล็อต ระบบจะไม่หักและตอบยอดคงเหลือจริงกลับมา (applied=false) ให้ระบุล็อตเพิ่มหรือส่งใหม่พร้อม force=true เพื่อยอมให้ยอดล็อตติดลบ (ADR 0008)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1417,7 +2034,7 @@ const docTemplate = `{
                 "tags": [
                     "inventory"
                 ],
-                "summary": "ปรับจำนวนคงคลัง",
+                "summary": "เบิกของออกจากคลัง",
                 "parameters": [
                     {
                         "type": "string",
@@ -1427,12 +2044,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "จำนวนใหม่",
+                        "description": "รายการล็อตที่เบิกออก",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_http_inventory.UpdateQuantityRequest"
+                            "$ref": "#/definitions/internal_adapters_http_inventory.IssueStockRequest"
                         }
                     }
                 ],
@@ -1448,7 +2065,144 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_http_inventory.ItemResponse"
+                                            "$ref": "#/definitions/internal_adapters_http_inventory.IssueStockResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/{id}/lots": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ทุกล็อตของรายการ — ใช้เลือกล็อตตอนเบิกออก (Stock Issue)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "รายการล็อตของวัสดุคงคลัง",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_inventory.LotResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/{id}/receive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "รับสินค้าเข้าคลังตามล็อต — ถ้าเลขล็อตซ้ำกับล็อตเดิมของรายการจะบวกจำนวนเข้าล็อตนั้น ไม่งั้นสร้างล็อตใหม่ จำนวนคงคลังของรายการคือผลรวมของทุกล็อต",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "รับของเข้าคลัง (สร้าง/เพิ่มล็อต)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ข้อมูลล็อตที่รับเข้า",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_inventory.ReceiveStockRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_inventory.ReceiveStockResponse"
                                         }
                                     }
                                 }
@@ -1561,6 +2315,12 @@ const docTemplate = `{
                         "description": "Parent Location ID",
                         "name": "parent_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Tree kind for root listing (sample_storage|equipment_storage, default sample_storage)",
+                        "name": "kind",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1654,6 +2414,64 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/by-barcode/{code}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "สแกน Location Barcode แล้ว resolve เป็น Location โดยตรง (ใช้ตอนย้าย Sample/วางของ)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "locations"
+                ],
+                "summary": "ค้นหา Location จาก Barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Location Barcode (เช่น LOC-BC-00001)",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_location.LocationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
@@ -2166,6 +2984,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "ล็อตที่รับเข้า",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_purchaseorder.MarkReceivedRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -2185,6 +3012,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
                     },
                     "401": {
@@ -2215,7 +3048,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "รองรับ filter ผ่าน query param ` + "`" + `status` + "`" + ` และ ` + "`" + `type` + "`" + `",
+                "description": "รองรับ filter ผ่าน query param ` + "`" + `status` + "`" + `, ` + "`" + `type` + "`" + `, ` + "`" + `barcode_id` + "`" + ` (exact), ` + "`" + `custodian_user_id` + "`" + `, ` + "`" + `location` + "`" + ` (บางส่วนของชื่อ Location)",
                 "produces": [
                     "application/json"
                 ],
@@ -2234,6 +3067,24 @@ const docTemplate = `{
                         "type": "string",
                         "description": "กรองตามประเภท",
                         "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองด้วย Barcode ID (สแกน, ตรงเป๊ะ)",
+                        "name": "barcode_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "กรองตามผู้ดูแล",
+                        "name": "custodian_user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองด้วยชื่อ Location (บางส่วน)",
+                        "name": "location",
                         "in": "query"
                     }
                 ],
@@ -2343,6 +3194,64 @@ const docTemplate = `{
                     "samples"
                 ],
                 "summary": "ดึงข้อมูลตัวอย่างตาม ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sample ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_sample.SampleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/samples/{id}/barcode": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "สร้าง Barcode ID อัตโนมัติ (SMP-BC-xxxxx) ถ้าตัวอย่างยังไม่มี; ถ้ามีอยู่แล้วคืนค่าเดิม",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "samples"
+                ],
+                "summary": "สร้าง Barcode ID ให้ตัวอย่าง",
                 "parameters": [
                     {
                         "type": "string",
@@ -2676,6 +3585,64 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/samples/{id}/sticker": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "เรนเดอร์ label PDF ขนาดตาม template (cap|stem|small|medium) พร้อมบาร์โค้ด code128 หรือ qr",
+                "produces": [
+                    "application/pdf"
+                ],
+                "tags": [
+                    "samples"
+                ],
+                "summary": "พิมพ์สติกเกอร์บาร์โค้ดของตัวอย่าง (PDF)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sample ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "cap | stem | small | medium (ค่าเริ่มต้น medium)",
+                        "name": "template",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "code128 | qr",
+                        "name": "symbology",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
@@ -3388,13 +4355,55 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_adapters_http_audit.EntryResponse": {
+            "type": "object",
+            "properties": {
+                "actor_id": {
+                    "type": "integer"
+                },
+                "actor_role": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "method": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_adapters_http_document.DocumentResponse": {
             "type": "object",
             "properties": {
                 "access_level": {
                     "type": "string"
                 },
+                "calibration_event_id": {
+                    "type": "integer"
+                },
                 "created_by": {
+                    "type": "string"
+                },
+                "equipment_id": {
                     "type": "string"
                 },
                 "id": {
@@ -3519,7 +4528,16 @@ const docTemplate = `{
         "internal_adapters_http_equipment.CalibrationEventResponse": {
             "type": "object",
             "properties": {
+                "acceptance_value": {
+                    "type": "string"
+                },
+                "calibrate_value": {
+                    "type": "string"
+                },
                 "calibrated_at": {
+                    "type": "string"
+                },
+                "calibration_type": {
                     "type": "string"
                 },
                 "equipment_id": {
@@ -3536,6 +4554,47 @@ const docTemplate = `{
                 },
                 "performed_by": {
                     "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_equipment.CalibrationScheduleResponse": {
+            "type": "object",
+            "properties": {
+                "equipment_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "interval_months": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "next_due_date": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_equipment.CreateCalibrationScheduleRequest": {
+            "type": "object",
+            "required": [
+                "label",
+                "next_due_date"
+            ],
+            "properties": {
+                "interval_months": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "next_due_date": {
+                    "type": "string"
                 }
             }
         },
@@ -3547,13 +4606,34 @@ const docTemplate = `{
                 "type_code"
             ],
             "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "installation_date": {
+                    "type": "string"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "next_calibration_due": {
                     "type": "string"
                 },
+                "serial_number": {
+                    "type": "string"
+                },
                 "type_code": {
+                    "type": "string"
+                },
+                "vendor_id": {
                     "type": "string"
                 }
             }
@@ -3564,16 +4644,34 @@ const docTemplate = `{
                 "calibration_pct": {
                     "type": "integer"
                 },
+                "category": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
+                "installation_date": {
+                    "type": "string"
+                },
                 "last_calibrated_at": {
+                    "type": "string"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "model": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
                 "next_calibration_due": {
+                    "type": "string"
+                },
+                "serial_number": {
                     "type": "string"
                 },
                 "status": {
@@ -3584,6 +4682,9 @@ const docTemplate = `{
                 },
                 "usage_hours": {
                     "type": "integer"
+                },
+                "vendor_id": {
+                    "type": "string"
                 }
             }
         },
@@ -3593,10 +4694,78 @@ const docTemplate = `{
                 "next_calibration_due"
             ],
             "properties": {
+                "acceptance_value": {
+                    "type": "string"
+                },
+                "calibrate_value": {
+                    "type": "string"
+                },
+                "calibration_type": {
+                    "type": "string"
+                },
                 "next_calibration_due": {
                     "type": "string"
                 },
                 "notes": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string",
+                    "enum": [
+                        "pass",
+                        "fail"
+                    ]
+                }
+            }
+        },
+        "internal_adapters_http_equipment.UpdateCalibrationScheduleRequest": {
+            "type": "object",
+            "properties": {
+                "clear_interval": {
+                    "type": "boolean"
+                },
+                "interval_months": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "next_due_date": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_equipment.UpdateEquipmentRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "clear_installation_date": {
+                    "type": "boolean"
+                },
+                "installation_date": {
+                    "type": "string"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "serial_number": {
+                    "type": "string"
+                },
+                "type_code": {
+                    "type": "string"
+                },
+                "vendor_id": {
                     "type": "string"
                 }
             }
@@ -3605,6 +4774,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "category",
+                "custodian_user_id",
                 "name",
                 "unit"
             ],
@@ -3612,7 +4782,16 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
+                "custodian_user_id": {
+                    "type": "integer"
+                },
                 "default_vendor": {
+                    "type": "string"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
                     "type": "string"
                 },
                 "max": {
@@ -3624,11 +4803,66 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "quantity": {
-                    "type": "integer"
-                },
                 "unit": {
                     "type": "string"
+                },
+                "vendor_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.IssueLineRequest": {
+            "type": "object",
+            "required": [
+                "lot_id"
+            ],
+            "properties": {
+                "lot_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.IssueStockRequest": {
+            "type": "object",
+            "required": [
+                "lines"
+            ],
+            "properties": {
+                "force": {
+                    "type": "boolean"
+                },
+                "lines": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_inventory.IssueLineRequest"
+                    }
+                }
+            }
+        },
+        "internal_adapters_http_inventory.IssueStockResponse": {
+            "type": "object",
+            "properties": {
+                "applied": {
+                    "type": "boolean"
+                },
+                "item": {
+                    "$ref": "#/definitions/internal_adapters_http_inventory.ItemResponse"
+                },
+                "lots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_inventory.LotResponse"
+                    }
+                },
+                "shortfalls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_inventory.ShortfallResponse"
+                    }
                 }
             }
         },
@@ -3638,10 +4872,19 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
+                "custodian_user_id": {
+                    "type": "integer"
+                },
                 "default_vendor": {
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
                     "type": "string"
                 },
                 "max": {
@@ -3664,6 +4907,57 @@ const docTemplate = `{
                 },
                 "unit": {
                     "type": "string"
+                },
+                "vendor_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.LotResponse": {
+            "type": "object",
+            "properties": {
+                "expire_date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "string"
+                },
+                "lot_no": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.ReceiveStockRequest": {
+            "type": "object",
+            "required": [
+                "lot_no"
+            ],
+            "properties": {
+                "expire_date": {
+                    "type": "string"
+                },
+                "lot_no": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_adapters_http_inventory.ReceiveStockResponse": {
+            "type": "object",
+            "properties": {
+                "item": {
+                    "$ref": "#/definitions/internal_adapters_http_inventory.ItemResponse"
+                },
+                "lot": {
+                    "$ref": "#/definitions/internal_adapters_http_inventory.LotResponse"
                 }
             }
         },
@@ -3678,6 +4972,23 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_adapters_http_inventory.ShortfallResponse": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "integer"
+                },
+                "lot_id": {
+                    "type": "string"
+                },
+                "lot_no": {
+                    "type": "string"
+                },
+                "requested": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_adapters_http_inventory.UpdateDefaultVendorRequest": {
             "type": "object",
             "required": [
@@ -3689,12 +5000,35 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_http_inventory.UpdateQuantityRequest": {
+        "internal_adapters_http_inventory.UpdateItemRequest": {
             "type": "object",
             "properties": {
-                "quantity": {
-                    "type": "integer",
-                    "minimum": 0
+                "category": {
+                    "type": "string"
+                },
+                "custodian_user_id": {
+                    "type": "integer"
+                },
+                "location_id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "vendor_id": {
+                    "type": "string"
                 }
             }
         },
@@ -3704,6 +5038,14 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "kind": {
+                    "description": "Kind selects the tree: \"sample_storage\" (default) or\n\"equipment_storage\".",
+                    "type": "string",
+                    "enum": [
+                        "sample_storage",
+                        "equipment_storage"
+                    ]
+                },
                 "name": {
                     "type": "string"
                 }
@@ -3736,7 +5078,13 @@ const docTemplate = `{
         "internal_adapters_http_location.LocationResponse": {
             "type": "object",
             "properties": {
+                "barcode_code": {
+                    "type": "string"
+                },
                 "id": {
+                    "type": "string"
+                },
+                "kind": {
                     "type": "string"
                 },
                 "level_type": {
@@ -3772,6 +5120,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tone": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_purchaseorder.MarkReceivedRequest": {
+            "type": "object",
+            "required": [
+                "lot_no"
+            ],
+            "properties": {
+                "expire_date": {
+                    "type": "string"
+                },
+                "lot_no": {
                     "type": "string"
                 }
             }
@@ -3815,10 +5177,10 @@ const docTemplate = `{
         },
         "internal_adapters_http_sample.AssignLocationRequest": {
             "type": "object",
-            "required": [
-                "location_id"
-            ],
             "properties": {
+                "location_barcode_code": {
+                    "type": "string"
+                },
                 "location_id": {
                     "type": "string"
                 }
@@ -3853,12 +5215,18 @@ const docTemplate = `{
         "internal_adapters_http_sample.CreateSampleRequest": {
             "type": "object",
             "required": [
-                "custodian",
+                "custodian_user_id",
                 "name",
                 "type"
             ],
             "properties": {
-                "custodian": {
+                "barcode_id": {
+                    "type": "string"
+                },
+                "custodian_user_id": {
+                    "type": "integer"
+                },
+                "description": {
                     "type": "string"
                 },
                 "location_id": {
@@ -3875,7 +5243,13 @@ const docTemplate = `{
         "internal_adapters_http_sample.SampleResponse": {
             "type": "object",
             "properties": {
-                "custodian": {
+                "barcode_id": {
+                    "type": "string"
+                },
+                "custodian_user_id": {
+                    "type": "integer"
+                },
+                "description": {
                     "type": "string"
                 },
                 "id": {
@@ -3976,6 +5350,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "test_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_user.AccessTokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
                     "type": "string"
                 }
             }

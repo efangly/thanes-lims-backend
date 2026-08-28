@@ -18,10 +18,10 @@ import (
 	postgresinventory "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/inventory"
 	postgreslocation "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/location"
 	postgresnotification "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/notification"
+	postgrespurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/purchaseorder"
 	postgressample "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/sample"
 	postgrestestresult "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/testresult"
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
-	postgrespurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/purchaseorder"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
@@ -97,19 +97,21 @@ func main() {
 
 	sampleRepo := postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
-	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, locationRepo, idgen, users, leaves)
+	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, locationRepo, userRepo, idgen, users, leaves)
 
 	testResultRepo := postgrestestresult.New(gdb)
 	seedTestResults(ctx, testResultRepo, sampleRepo, cocRepo, idgen, samples, users, notifier)
 
 	equipmentRepo := postgresequipment.New(gdb)
 	seedEquipment(ctx, equipmentRepo, idgen)
+	seedCalibrationSchedules(ctx, equipmentRepo, postgresequipment.NewScheduleRepository(gdb))
 
 	inventoryRepo := postgresinventory.New(gdb)
-	_ = seedInventory(ctx, inventoryRepo, idgen)
+	inventoryLotRepo := postgresinventory.NewLotRepository(gdb)
+	_ = seedInventory(ctx, inventoryRepo, inventoryLotRepo, idgen, users)
 
 	purchaseOrderRepo := postgrespurchaseorder.New(gdb)
-	seedPurchaseOrders(ctx, purchaseOrderRepo, inventoryRepo, idgen)
+	seedPurchaseOrders(ctx, purchaseOrderRepo, inventoryRepo, inventoryLotRepo, idgen)
 
 	documentRepo := postgresdocument.New(gdb)
 	docHistoryRepo := postgresdocument.NewHistoryRepository(gdb)
@@ -153,11 +155,6 @@ func seedUsers(ctx context.Context, users *postgresuser.Repository) map[string]d
 	log.Printf("seed: created %d users (password: %s)", len(out), seedPassword)
 	return out
 }
-
-// sampleCustodians mirrors the custodian names used in the Oracle Select AI
-// POC seed (scripts/oracle/002_seed.sql) so demo questions read the same
-// across both databases.
-var sampleCustodians = []string{"สมชาย ใจดี", "วิภา สายใจ", "ประยุทธ์ แสงทอง", "อรทัย พงษ์ศรี"}
 
 var sampleTypeSpecs = []struct {
 	typ  sample.Type
@@ -220,10 +217,15 @@ func seedLocations(ctx context.Context, locations *postgreslocation.Repository, 
 	return leaves
 }
 
-func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, locations *postgreslocation.Repository, idgen *postgresidgen.Adapter, users map[string]domainuser.User, leaves []string) []sample.Sample {
-	create := applicationsample.NewCreateSampleUseCase(samples, coc, idgen)
+func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, locations *postgreslocation.Repository, userRepo *postgresuser.Repository, idgen *postgresidgen.Adapter, users map[string]domainuser.User, leaves []string) []sample.Sample {
+	create := applicationsample.NewCreateSampleUseCase(samples, coc, userRepo, idgen)
 	updateStatus := applicationsample.NewUpdateSampleStatusUseCase(samples, coc)
 	assignLocation := applicationsample.NewAssignLocationUseCase(samples, locations)
+	generateBarcode := applicationsample.NewGenerateBarcodeUseCase(samples, idgen)
+
+	// Custodian is a User FK since Phase 3 - cycle Samples through the
+	// seeded Users.
+	custodianIDs := []int64{users["scientist"].ID, users["qa"].ID, users["general"].ID, users["admin"].ID}
 
 	const total = 40
 	overdueDays := []int{15, 14, 10, 7} // applied in order to the pending samples below
@@ -232,15 +234,21 @@ func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repo
 	out := make([]sample.Sample, 0, total)
 	for i := 0; i < total; i++ {
 		spec := sampleTypeSpecs[i%len(sampleTypeSpecs)]
-		custodian := sampleCustodians[i%len(sampleCustodians)]
 
 		created, err := create.Execute(ctx, applicationsample.CreateSampleInput{
-			Name:      fmt.Sprintf("%s #%02d", spec.name, i+1),
-			Type:      spec.typ,
-			Custodian: custodian,
+			Name:            fmt.Sprintf("%s #%02d", spec.name, i+1),
+			Type:            spec.typ,
+			CustodianUserID: custodianIDs[i%len(custodianIDs)],
+			Description:     fmt.Sprintf("ตัวอย่างสาธิตชุดที่ %d", i+1),
 		})
 		if err != nil {
 			log.Fatalf("seed sample %d: %v", i, err)
+		}
+
+		// Give every seeded Sample a scan Barcode ID so the registry's
+		// scan-to-filter path has data to hit.
+		if _, err := generateBarcode.Execute(ctx, created.ID); err != nil {
+			log.Fatalf("seed sample %d: generate barcode: %v", i, err)
 		}
 
 		// Each sample gets its own leaf Slot - len(leaves) (75) comfortably
@@ -364,7 +372,8 @@ func seedTestResults(ctx context.Context, results *postgrestestresult.Repository
 }
 
 func seedEquipment(ctx context.Context, equipment *postgresequipment.Repository, idgen *postgresidgen.Adapter) {
-	create := applicationequipment.NewCreateEquipmentUseCase(equipment, idgen)
+	// Directories left nil: seed data carries no vendor/location links yet.
+	create := applicationequipment.NewCreateEquipmentUseCase(equipment, idgen, nil, nil)
 
 	specs := []struct {
 		name     string
@@ -392,8 +401,39 @@ func seedEquipment(ctx context.Context, equipment *postgresequipment.Repository,
 	log.Printf("seed: created %d equipment", len(specs))
 }
 
-func seedInventory(ctx context.Context, inventoryRepo *postgresinventory.Repository, idgen *postgresidgen.Adapter) []inventory.InventoryItem {
-	create := applicationinventory.NewCreateItemUseCase(inventoryRepo, idgen)
+// seedCalibrationSchedules attaches an internal + external calibration
+// schedule to every seeded Equipment (Phase 6). The internal one carries a
+// 12-month interval so logging a "สอบเทียบภายใน" event auto-advances it.
+func seedCalibrationSchedules(ctx context.Context, equipment *postgresequipment.Repository, schedules *postgresequipment.ScheduleRepository) {
+	uc := applicationequipment.NewCalibrationScheduleUseCase(equipment, schedules)
+	items, err := equipment.List(ctx)
+	if err != nil {
+		log.Fatalf("seed calibration schedules: list equipment: %v", err)
+	}
+	twelve := 12
+	count := 0
+	for _, e := range items {
+		defs := []applicationequipment.CreateCalibrationScheduleInput{
+			{EquipmentID: e.ID, Label: "สอบเทียบภายใน", NextDueDate: e.NextCalibrationDue, IntervalMonths: &twelve},
+			{EquipmentID: e.ID, Label: "สอบเทียบภายนอก", NextDueDate: e.NextCalibrationDue.AddDate(0, 6, 0)},
+		}
+		for _, d := range defs {
+			if _, err := uc.Create(ctx, d); err != nil {
+				log.Fatalf("seed calibration schedule for %s: %v", e.ID, err)
+			}
+			count++
+		}
+	}
+	log.Printf("seed: created %d calibration schedules", count)
+}
+
+func seedInventory(ctx context.Context, inventoryRepo *postgresinventory.Repository, lotRepo *postgresinventory.LotRepository, idgen *postgresidgen.Adapter, users map[string]domainuser.User) []inventory.InventoryItem {
+	// custodian/vendor/location directories are nil here - seed sets the
+	// CustodianUserID directly and does not wire Vendor/Location master data
+	// into inventory yet (same as seedEquipment).
+	create := applicationinventory.NewCreateItemUseCase(inventoryRepo, idgen, nil, nil, nil)
+	receive := applicationinventory.NewReceiveStockUseCase(inventoryRepo, lotRepo, idgen)
+	custodianIDs := []int64{users["general"].ID, users["scientist"].ID, users["qa"].ID, users["admin"].ID}
 
 	specs := []struct {
 		name          string
@@ -419,13 +459,25 @@ func seedInventory(ctx context.Context, inventoryRepo *postgresinventory.Reposit
 	}
 
 	out := make([]inventory.InventoryItem, 0, len(specs))
-	for _, s := range specs {
+	for i, s := range specs {
 		item, err := create.Execute(ctx, applicationinventory.CreateItemInput{
-			Name: s.name, Category: s.category, Quantity: s.qty, Unit: s.unit, Min: s.min, Max: s.max,
-			DefaultVendor: s.vendor,
+			Name: s.name, Category: s.category, Unit: s.unit, Min: s.min, Max: s.max,
+			DefaultVendor:   s.vendor,
+			CustodianUserID: custodianIDs[i%len(custodianIDs)],
 		})
 		if err != nil {
 			log.Fatalf("seed inventory %s: %v", s.name, err)
+		}
+		// Opening stock enters as a lot (Phase 8) - Quantity is derived.
+		if s.qty > 0 {
+			expire := time.Now().AddDate(1, 0, 0)
+			res, rerr := receive.Execute(ctx, applicationinventory.ReceiveStockInput{
+				ItemID: item.ID, LotNo: "OPENING", ExpireDate: &expire, Quantity: s.qty,
+			})
+			if rerr != nil {
+				log.Fatalf("seed inventory lot %s: %v", s.name, rerr)
+			}
+			item = res.Item
 		}
 		out = append(out, item)
 	}
@@ -437,10 +489,10 @@ func seedInventory(ctx context.Context, inventoryRepo *postgresinventory.Reposit
 // seedInventory) via the same use case the API's manual-reorder endpoint
 // uses, then varies each PO's lifecycle stage so the demo has a mix of
 // pending_approval/sent_to_vendor/received - not just freshly-created rows.
-func seedPurchaseOrders(ctx context.Context, purchaseOrders *postgrespurchaseorder.Repository, inventoryRepo *postgresinventory.Repository, idgen *postgresidgen.Adapter) {
+func seedPurchaseOrders(ctx context.Context, purchaseOrders *postgrespurchaseorder.Repository, inventoryRepo *postgresinventory.Repository, lotRepo *postgresinventory.LotRepository, idgen *postgresidgen.Adapter) {
 	reorder := applicationpurchaseorder.NewCreateFromLowStockUseCase(purchaseOrders, inventoryRepo, idgen)
 	approve := applicationpurchaseorder.NewApprovePOUseCase(purchaseOrders)
-	receive := applicationpurchaseorder.NewMarkReceivedUseCase(purchaseOrders, inventoryRepo)
+	receive := applicationpurchaseorder.NewMarkReceivedUseCase(purchaseOrders, inventoryRepo, lotRepo, idgen)
 
 	items, err := inventoryRepo.List(ctx)
 	if err != nil {
@@ -468,7 +520,9 @@ func seedPurchaseOrders(ctx context.Context, purchaseOrders *postgrespurchaseord
 			if _, err := approve.Execute(ctx, applicationpurchaseorder.ApprovePOInput{ID: po.ID, ActorRole: domainuser.RoleQA}); err != nil {
 				log.Fatalf("approve PO %s: %v", po.ID, err)
 			}
-			if _, err := receive.Execute(ctx, po.ID); err != nil {
+			if _, err := receive.Execute(ctx, applicationpurchaseorder.MarkReceivedInput{
+				ID: po.ID, LotNo: "PO-" + po.ID,
+			}); err != nil {
 				log.Fatalf("receive PO %s: %v", po.ID, err)
 			}
 		}
@@ -477,7 +531,7 @@ func seedPurchaseOrders(ctx context.Context, purchaseOrders *postgrespurchaseord
 }
 
 func seedDocuments(ctx context.Context, documents *postgresdocument.Repository, history *postgresdocument.HistoryRepository, storage *minio.Adapter, idgen *postgresidgen.Adapter, users map[string]domainuser.User) {
-	upload := applicationdocument.NewUploadDocumentUseCase(documents, history, storage, idgen)
+	upload := applicationdocument.NewUploadDocumentUseCase(documents, history, storage, idgen, nil, nil)
 
 	specs := []struct {
 		name     string

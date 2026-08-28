@@ -21,6 +21,21 @@ type Equipment struct {
 	LastCalibratedAt   time.Time
 	NextCalibrationDue time.Time
 	UsageHours         int
+
+	// Descriptive/asset fields (Phase 5). Category is a free-text
+	// classification kept separate from TypeCode (TypeCode drives the ID
+	// sequence and stays short; Category is the human-facing grouping).
+	// Manufacturer is a plain descriptive string, distinct from VendorID
+	// which FKs the Vendor master record (see CONTEXT.md#vendors).
+	SerialNumber     string
+	Category         string
+	Manufacturer     string
+	Model            string
+	InstallationDate *time.Time
+	// VendorID FKs a Vendor; LocationID FKs a Location of Kind
+	// equipment_storage (ADR 0007). Both optional.
+	VendorID   *string
+	LocationID *string
 }
 
 // Status is derived from NextCalibrationDue rather than stored, so it can

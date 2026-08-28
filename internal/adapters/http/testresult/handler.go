@@ -208,6 +208,7 @@ func (h *Handler) GetReport(c fiber.Ctx) error {
 	body, err := pdf.TestResultReport(pdf.TestResultReportData{
 		Result:           data.Result,
 		Sample:           data.Sample,
+		CustodianName:    data.CustodianName,
 		CoCSteps:         data.CoCSteps,
 		LocationFullPath: data.LocationFullPath,
 	})

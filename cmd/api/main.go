@@ -46,7 +46,7 @@ func main() {
 
 	// Oracle ADB (chatbot POC) is optional - failure here must never crash
 	// the main API, which stays fully functional on Postgres alone.
-	if cfg.OracleDSN != "" {
+	if cfg.OracleEnabled {
 		oracleDB, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
 		if err != nil {
 			log.Printf("oracle: connect failed, ADB features disabled: %v", err)
@@ -74,9 +74,20 @@ func main() {
 	}
 	defer redisCache.Close()
 
-	app := fiber.New(fiber.Config{
+	fiberCfg := fiber.Config{
 		ErrorHandler: middleware.ErrorMapper,
-	})
+	}
+	// Only trust proxy headers (X-Forwarded-For etc.) from the configured
+	// load balancers, so the client IP stored in a Token Family can't be
+	// spoofed by an arbitrary caller sending its own X-Forwarded-For.
+	if len(cfg.TrustedProxies) > 0 {
+		fiberCfg.TrustProxy = true
+		fiberCfg.TrustProxyConfig = fiber.TrustProxyConfig{Proxies: cfg.TrustedProxies}
+		if cfg.ProxyHeader != "" {
+			fiberCfg.ProxyHeader = cfg.ProxyHeader
+		}
+	}
+	app := fiber.New(fiberCfg)
 
 	app.Use(requestid.New())
 	app.Use(recover.New())
@@ -123,6 +134,13 @@ func main() {
 // AllowOrigins configured) keeps today's permissive behavior.
 func corsMiddleware(cfg *config.Config) fiber.Handler {
 	if len(cfg.CORSAllowOrigins) == 0 {
+		// A wildcard CORS policy is only ever acceptable for local dev. In any
+		// real deployment an unset CORS_ALLOW_ORIGINS is a misconfiguration -
+		// fail loudly at boot rather than silently serving Access-Control-
+		// Allow-Origin: * to the whole internet.
+		if cfg.AppEnv != "local" {
+			log.Fatalf("CORS_ALLOW_ORIGINS must be set when APP_ENV=%q (refusing to start with a wildcard CORS policy)", cfg.AppEnv)
+		}
 		return cors.New()
 	}
 	return cors.New(cors.Config{

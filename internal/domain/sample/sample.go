@@ -52,13 +52,22 @@ var validTransitions = map[Status][]Status{
 }
 
 type Sample struct {
-	ID         string
-	Name       string
-	Type       Type
-	Custodian  string
-	LocationID *string
-	Status     Status
-	ReceivedAt time.Time
+	ID   string
+	Name string
+	Type Type
+	// CustodianUserID is the FK to the User responsible for this Sample
+	// (see CONTEXT.md "Custodian"). Replaced the old free-text Custodian
+	// string in Phase 3.
+	CustodianUserID int64
+	LocationID      *string
+	Status          Status
+	ReceivedAt      time.Time
+	// BarcodeID is an optional physical/scan identifier, separate from ID
+	// (see CONTEXT.md "Barcode ID"). Either user-supplied or generated as
+	// SMP-BC-{seq5}; unique across non-Retired Samples when set.
+	BarcodeID *string
+	// Description is free-text notes captured on the create-sample popup.
+	Description string
 }
 
 func (s Sample) CanTransition(to Status) bool {

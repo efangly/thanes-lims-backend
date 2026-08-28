@@ -19,20 +19,32 @@ func New(db *gorm.DB) *Repository {
 }
 
 func toDomain(m Model) location.Location {
+	barcode := ""
+	if m.BarcodeCode != nil {
+		barcode = *m.BarcodeCode
+	}
 	return location.Location{
-		ID:        m.ID,
-		ParentID:  m.ParentID,
-		Name:      m.Name,
-		LevelType: location.LevelType(m.LevelType),
+		ID:          m.ID,
+		ParentID:    m.ParentID,
+		Name:        m.Name,
+		Kind:        location.Kind(m.Kind),
+		LevelType:   location.LevelType(m.LevelType),
+		BarcodeCode: barcode,
 	}
 }
 
 func toModel(l location.Location) Model {
+	var barcode *string
+	if l.BarcodeCode != "" {
+		barcode = &l.BarcodeCode
+	}
 	return Model{
-		ID:        l.ID,
-		ParentID:  l.ParentID,
-		Name:      l.Name,
-		LevelType: string(l.LevelType),
+		ID:          l.ID,
+		ParentID:    l.ParentID,
+		Name:        l.Name,
+		Kind:        string(l.Kind),
+		LevelType:   string(l.LevelType),
+		BarcodeCode: barcode,
 	}
 }
 
@@ -92,6 +104,32 @@ func (r *Repository) ListChildren(ctx context.Context, parentID *string) ([]loca
 		out[i] = toDomain(m)
 	}
 	return out, nil
+}
+
+func (r *Repository) ListRoots(ctx context.Context, kind location.Kind) ([]location.Location, error) {
+	var models []Model
+	if err := r.db.WithContext(ctx).Model(&Model{}).
+		Where("parent_id IS NULL AND kind = ?", string(kind)).
+		Order("name").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]location.Location, len(models))
+	for i, m := range models {
+		out[i] = toDomain(m)
+	}
+	return out, nil
+}
+
+func (r *Repository) FindByBarcode(ctx context.Context, code string) (location.Location, error) {
+	var m Model
+	err := r.db.WithContext(ctx).First(&m, "barcode_code = ?", code).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return location.Location{}, shared.ErrNotFound
+	}
+	if err != nil {
+		return location.Location{}, err
+	}
+	return toDomain(m), nil
 }
 
 func (r *Repository) FindChildByName(ctx context.Context, parentID *string, name string) (location.Location, error) {

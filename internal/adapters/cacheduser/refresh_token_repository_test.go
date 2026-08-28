@@ -25,9 +25,9 @@ func (m *mockRepo) FindByTokenHash(ctx context.Context, tokenHash string) (user.
 	args := m.Called(ctx, tokenHash)
 	return args.Get(0).(user.RefreshToken), args.Error(1)
 }
-func (m *mockRepo) Revoke(ctx context.Context, id int64, tokenHash string) error {
+func (m *mockRepo) Revoke(ctx context.Context, id int64, tokenHash string) (int64, error) {
 	args := m.Called(ctx, id, tokenHash)
-	return args.Error(0)
+	return args.Get(0).(int64), args.Error(1)
 }
 func (m *mockRepo) RevokeAllForUser(ctx context.Context, userID int64) error {
 	args := m.Called(ctx, userID)
@@ -103,11 +103,11 @@ func TestFindByTokenHash_CacheUnreachable_FailsClosed(t *testing.T) {
 func TestRevoke_DeletesCacheAfterPostgres(t *testing.T) {
 	c := new(mockCache)
 	repo := new(mockRepo)
-	repo.On("Revoke", mock.Anything, int64(5), "hash5").Return(nil)
+	repo.On("Revoke", mock.Anything, int64(5), "hash5").Return(int64(1), nil)
 	c.On("Delete", mock.Anything, "refresh:hash5").Return(nil)
 
 	sut := cacheduser.NewCachedRefreshTokenRepository(repo, c)
-	err := sut.Revoke(context.Background(), 5, "hash5")
+	_, err := sut.Revoke(context.Background(), 5, "hash5")
 
 	require.NoError(t, err)
 	c.AssertExpectations(t)
@@ -116,11 +116,11 @@ func TestRevoke_DeletesCacheAfterPostgres(t *testing.T) {
 func TestRevoke_CacheDeleteFailure_Propagates(t *testing.T) {
 	c := new(mockCache)
 	repo := new(mockRepo)
-	repo.On("Revoke", mock.Anything, int64(6), "hash6").Return(nil)
+	repo.On("Revoke", mock.Anything, int64(6), "hash6").Return(int64(1), nil)
 	c.On("Delete", mock.Anything, "refresh:hash6").Return(errors.New("connection refused"))
 
 	sut := cacheduser.NewCachedRefreshTokenRepository(repo, c)
-	err := sut.Revoke(context.Background(), 6, "hash6")
+	_, err := sut.Revoke(context.Background(), 6, "hash6")
 
 	assert.Error(t, err)
 }
@@ -128,10 +128,10 @@ func TestRevoke_CacheDeleteFailure_Propagates(t *testing.T) {
 func TestRevoke_PostgresFailure_NeverTouchesCache(t *testing.T) {
 	c := new(mockCache)
 	repo := new(mockRepo)
-	repo.On("Revoke", mock.Anything, int64(7), "hash7").Return(errors.New("db down"))
+	repo.On("Revoke", mock.Anything, int64(7), "hash7").Return(int64(0), errors.New("db down"))
 
 	sut := cacheduser.NewCachedRefreshTokenRepository(repo, c)
-	err := sut.Revoke(context.Background(), 7, "hash7")
+	_, err := sut.Revoke(context.Background(), 7, "hash7")
 
 	assert.Error(t, err)
 	c.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
@@ -143,14 +143,29 @@ func TestRevokeAllForUser_InvalidatesEveryHash(t *testing.T) {
 	repo.On("FindTokenHashesByUserID", mock.Anything, int64(9)).Return([]string{"h1", "h2"}, nil)
 	repo.On("RevokeAllForUser", mock.Anything, int64(9)).Return(nil)
 	c.On("Delete", mock.Anything, "refresh:h1").Return(nil)
-	// One cache delete failing must not fail the whole call or skip the rest -
-	// Postgres has already revoked every row (see ADR 0005).
-	c.On("Delete", mock.Anything, "refresh:h2").Return(errors.New("connection refused"))
+	c.On("Delete", mock.Anything, "refresh:h2").Return(nil)
 
 	sut := cacheduser.NewCachedRefreshTokenRepository(repo, c)
 	err := sut.RevokeAllForUser(context.Background(), 9)
 
 	require.NoError(t, err)
+	c.AssertExpectations(t)
+}
+
+func TestRevokeAllForUser_CacheDeleteFailure_AttemptsAllThenErrors(t *testing.T) {
+	c := new(mockCache)
+	repo := new(mockRepo)
+	repo.On("FindTokenHashesByUserID", mock.Anything, int64(9)).Return([]string{"h1", "h2"}, nil)
+	repo.On("RevokeAllForUser", mock.Anything, int64(9)).Return(nil)
+	// h1 fails, but h2 must still be attempted; the call then reports an error
+	// so the security path (Reuse Detection / global logout) can alert.
+	c.On("Delete", mock.Anything, "refresh:h1").Return(errors.New("connection refused"))
+	c.On("Delete", mock.Anything, "refresh:h2").Return(nil)
+
+	sut := cacheduser.NewCachedRefreshTokenRepository(repo, c)
+	err := sut.RevokeAllForUser(context.Background(), 9)
+
+	require.Error(t, err)
 	c.AssertExpectations(t)
 }
 

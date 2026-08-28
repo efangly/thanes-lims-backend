@@ -21,6 +21,18 @@ func (uc *ListDocumentsUseCase) Execute(ctx context.Context) ([]document.Documen
 	return uc.documents.List(ctx)
 }
 
+// ExecuteByEquipment lists only the Documents linked to equipmentID (Phase
+// 5) - backs GET /documents?equipment_id=.
+func (uc *ListDocumentsUseCase) ExecuteByEquipment(ctx context.Context, equipmentID string) ([]document.Document, error) {
+	return uc.documents.ListByEquipment(ctx, equipmentID)
+}
+
+// ExecuteByCalibrationEvent lists only the Documents linked to one
+// CalibrationEvent (Phase 6) - backs GET /documents?calibration_event_id=.
+func (uc *ListDocumentsUseCase) ExecuteByCalibrationEvent(ctx context.Context, calibrationEventID int64) ([]document.Document, error) {
+	return uc.documents.ListByCalibrationEvent(ctx, calibrationEventID)
+}
+
 type GetDocumentUseCase struct {
 	documents portdocument.Repository
 }

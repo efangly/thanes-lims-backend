@@ -29,7 +29,7 @@ func TestRefreshUseCase_ValidRotate(t *testing.T) {
 	tokens.On("HashRefreshToken", "raw").Return("hash1")
 	refresh.On("FindByTokenHash", mock.Anything, "hash1").Return(stored, nil)
 	users.On("FindByID", mock.Anything, int64(1)).Return(u, nil)
-	refresh.On("Revoke", mock.Anything, int64(10), "").Return(nil)
+	refresh.On("Revoke", mock.Anything, int64(10), "").Return(int64(1), nil)
 	rbacRepo.On("FindPermissionsByRoleName", mock.Anything, "Scientist").Return(perms, nil)
 	tokens.On("GenerateAccessToken", u, []string{"sample:edit"}).Return("new-access", nil)
 	tokens.On("GenerateRefreshToken", u).Return("new-refresh", time.Now().Add(time.Hour), nil)
@@ -77,6 +77,33 @@ func TestRefreshUseCase_ReuseDetection(t *testing.T) {
 	tokens.On("ParseRefreshToken", "raw").Return(portuser.Claims{UserID: 1}, nil)
 	tokens.On("HashRefreshToken", "raw").Return("hash1")
 	refresh.On("FindByTokenHash", mock.Anything, "hash1").Return(stored, nil)
+	refresh.On("RevokeAllForUser", mock.Anything, int64(1)).Return(nil)
+
+	uc := applicationuser.NewRefreshUseCase(users, refresh, tokens, rbacRepo)
+	_, err := uc.Execute(context.Background(), "raw", "test-agent", "127.0.0.1")
+
+	assert.ErrorIs(t, err, shared.ErrUnauthorized)
+	refresh.AssertCalled(t, "RevokeAllForUser", mock.Anything, int64(1))
+}
+
+// TestRefreshUseCase_ConcurrentDoubleSpend covers two requests presenting the
+// same not-yet-revoked token: both pass the Revoked check, but the CAS Revoke
+// reports 0 rows affected for the loser, which must be treated as a leaked
+// token and revoke every Session the user holds.
+func TestRefreshUseCase_ConcurrentDoubleSpend(t *testing.T) {
+	users := new(mockUserRepo)
+	refresh := new(mockRefreshRepo)
+	tokens := new(mockTokenService)
+	rbacRepo := new(mockRBACRepo)
+
+	u := domainuser.User{ID: 1, Role: domainuser.RoleScientist}
+	stored := domainuser.RefreshToken{ID: 10, UserID: 1, FamilyID: "family-1", FamilyCreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour), Revoked: false}
+
+	tokens.On("ParseRefreshToken", "raw").Return(portuser.Claims{UserID: 1}, nil)
+	tokens.On("HashRefreshToken", "raw").Return("hash1")
+	refresh.On("FindByTokenHash", mock.Anything, "hash1").Return(stored, nil)
+	users.On("FindByID", mock.Anything, int64(1)).Return(u, nil)
+	refresh.On("Revoke", mock.Anything, int64(10), "").Return(int64(0), nil)
 	refresh.On("RevokeAllForUser", mock.Anything, int64(1)).Return(nil)
 
 	uc := applicationuser.NewRefreshUseCase(users, refresh, tokens, rbacRepo)

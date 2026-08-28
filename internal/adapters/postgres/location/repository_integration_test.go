@@ -20,18 +20,31 @@ func TestLocationRepository_TreeCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	cabinet, err := repo.Create(ctx, domainlocation.Location{
-		ID: "LOC-00001", Name: "Fridge-A", LevelType: domainlocation.LevelCabinet,
+		ID: "LOC-00001", Name: "Fridge-A", Kind: domainlocation.KindSampleStorage,
+		LevelType: domainlocation.LevelCabinet, BarcodeCode: "LOC-BC-00001",
 	})
 	require.NoError(t, err)
 	assert.True(t, cabinet.IsRoot())
 
+	byBarcode, err := repo.FindByBarcode(ctx, "LOC-BC-00001")
+	require.NoError(t, err)
+	assert.Equal(t, "LOC-00001", byBarcode.ID)
+
 	cabinetID := cabinet.ID
 	shelves, err := repo.CreateMany(ctx, []domainlocation.Location{
-		{ID: "LOC-00002", ParentID: &cabinetID, Name: "Shelf-1", LevelType: domainlocation.LevelShelf},
-		{ID: "LOC-00003", ParentID: &cabinetID, Name: "Shelf-2", LevelType: domainlocation.LevelShelf},
+		{ID: "LOC-00002", ParentID: &cabinetID, Name: "Shelf-1", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelShelf, BarcodeCode: "LOC-BC-00002"},
+		{ID: "LOC-00003", ParentID: &cabinetID, Name: "Shelf-2", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelShelf, BarcodeCode: "LOC-BC-00003"},
 	})
 	require.NoError(t, err)
 	require.Len(t, shelves, 2)
+
+	// Root listing is scoped to one Kind.
+	sampleRoots, err := repo.ListRoots(ctx, domainlocation.KindSampleStorage)
+	require.NoError(t, err)
+	assert.Len(t, sampleRoots, 1)
+	eqRoots, err := repo.ListRoots(ctx, domainlocation.KindEquipmentStorage)
+	require.NoError(t, err)
+	assert.Empty(t, eqRoots)
 
 	byID, err := repo.GetByID(ctx, cabinetID)
 	require.NoError(t, err)
@@ -101,12 +114,12 @@ func TestLocationRepository_RootNameUniqueness(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.Create(ctx, domainlocation.Location{
-		ID: "LOC-00010", Name: "Fridge-A", LevelType: domainlocation.LevelCabinet,
+		ID: "LOC-00010", Name: "Fridge-A", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelCabinet,
 	})
 	require.NoError(t, err)
 
 	_, err = repo.Create(ctx, domainlocation.Location{
-		ID: "LOC-00011", Name: "Fridge-A", LevelType: domainlocation.LevelCabinet,
+		ID: "LOC-00011", Name: "Fridge-A", Kind: domainlocation.KindSampleStorage, LevelType: domainlocation.LevelCabinet,
 	})
 	assert.Error(t, err)
 }

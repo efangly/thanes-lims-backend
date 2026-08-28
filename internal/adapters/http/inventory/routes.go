@@ -14,7 +14,10 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	inv.Post("/", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionCreate), h.Create)
 	inv.Get("/", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionView), h.List)
 	inv.Get("/:id", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionView), h.Get)
-	inv.Patch("/:id/quantity", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionEdit), h.UpdateQuantity)
+	inv.Patch("/:id", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionEdit), h.Update)
+	inv.Get("/:id/lots", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionView), h.ListLots)
+	inv.Post("/:id/receive", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionEdit), h.ReceiveStock)
+	inv.Post("/:id/issue", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionEdit), h.IssueStock)
 	inv.Patch("/:id/default-vendor", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionEdit), h.UpdateDefaultVendor)
 	inv.Post("/:id/reorder", middleware.RequirePermission(rbac.ModuleInventory, rbac.ActionCreate), h.Reorder)
 }

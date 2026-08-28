@@ -41,7 +41,7 @@ func (uc *GenerateChildrenUseCase) Execute(ctx context.Context, in GenerateChild
 		return nil, err
 	}
 
-	childLevel, ok := parent.LevelType.Next()
+	childLevel, ok := domainlocation.ChildLevel(parent.Kind, parent.LevelType)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s cannot have children", shared.ErrValidation, parent.LevelType)
 	}
@@ -59,13 +59,19 @@ func (uc *GenerateChildrenUseCase) Execute(ctx context.Context, in GenerateChild
 		if err != nil {
 			return nil, err
 		}
+		barcode, err := nextBarcodeCode(ctx, uc.idgen)
+		if err != nil {
+			return nil, err
+		}
 
 		parentID := in.ParentID
 		children[i] = domainlocation.Location{
-			ID:        id,
-			ParentID:  &parentID,
-			Name:      name,
-			LevelType: childLevel,
+			ID:          id,
+			ParentID:    &parentID,
+			Name:        name,
+			Kind:        parent.Kind,
+			LevelType:   childLevel,
+			BarcodeCode: barcode,
 		}
 	}
 

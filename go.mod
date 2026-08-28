@@ -3,6 +3,7 @@ module github.com/efangly/thanes-lims-backend
 go 1.26.5
 
 require (
+	github.com/boombuler/barcode v1.1.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/fasthttp/websocket v1.5.12
 	github.com/go-playground/validator/v10 v10.30.3
@@ -73,6 +74,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+	github.com/ruudk/golang-pdf417 v0.0.0-20181029194003-1af4ab5afa58 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
