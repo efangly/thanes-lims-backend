@@ -83,6 +83,22 @@ func (r *ScheduleRepository) ListByEquipment(ctx context.Context, equipmentID st
 	return out, nil
 }
 
+func (r *ScheduleRepository) List(ctx context.Context, equipmentIDs []string) ([]equipment.CalibrationSchedule, error) {
+	q := r.db.WithContext(ctx).Order("next_due_date")
+	if len(equipmentIDs) > 0 {
+		q = q.Where("equipment_id IN ?", equipmentIDs)
+	}
+	var models []ScheduleModel
+	if err := q.Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]equipment.CalibrationSchedule, len(models))
+	for i, m := range models {
+		out[i] = scheduleToDomain(m)
+	}
+	return out, nil
+}
+
 // Update uses Save so a cleared IntervalMonths (nil) actually persists.
 func (r *ScheduleRepository) Update(ctx context.Context, s equipment.CalibrationSchedule) (equipment.CalibrationSchedule, error) {
 	m := scheduleToModel(s)

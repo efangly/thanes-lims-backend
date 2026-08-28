@@ -31,6 +31,10 @@ type ScheduleRepository interface {
 	Create(ctx context.Context, s equipment.CalibrationSchedule) (equipment.CalibrationSchedule, error)
 	FindByID(ctx context.Context, id int64) (equipment.CalibrationSchedule, error)
 	ListByEquipment(ctx context.Context, equipmentID string) ([]equipment.CalibrationSchedule, error)
+	// List backs the cross-Equipment schedules endpoint. A nil/empty
+	// equipmentIDs returns every schedule; otherwise only those whose
+	// EquipmentID is in the set. Ordered by NextDueDate.
+	List(ctx context.Context, equipmentIDs []string) ([]equipment.CalibrationSchedule, error)
 	Update(ctx context.Context, s equipment.CalibrationSchedule) (equipment.CalibrationSchedule, error)
 	Delete(ctx context.Context, id int64) error
 }

@@ -1,5 +1,7 @@
 package inventory
 
+import "time"
+
 type Status string
 
 const (
@@ -28,6 +30,14 @@ type InventoryItem struct {
 	Manufacturer    string
 	VendorID        *string
 	LocationID      *string
+
+	// Derived from the item's InventoryLots, never stored - overlaid on
+	// read alongside Quantity (see postgres/inventory.Repository).
+	// EarliestExpireDate is the soonest ExpireDate across lots that have
+	// one (nil when the item has no lots, or no lot carries an expiry).
+	// LotCount is the number of lots.
+	EarliestExpireDate *time.Time
+	LotCount           int
 }
 
 // Pct and DerivedStatus are computed on read, never stored, so they can

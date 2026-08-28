@@ -44,6 +44,22 @@ func (s *stubSchedules) ListByEquipment(_ context.Context, equipmentID string) (
 	}
 	return out, nil
 }
+func (s *stubSchedules) List(_ context.Context, equipmentIDs []string) ([]domainequipment.CalibrationSchedule, error) {
+	var out []domainequipment.CalibrationSchedule
+	for _, sc := range s.store {
+		if len(equipmentIDs) == 0 {
+			out = append(out, sc)
+			continue
+		}
+		for _, id := range equipmentIDs {
+			if sc.EquipmentID == id {
+				out = append(out, sc)
+				break
+			}
+		}
+	}
+	return out, nil
+}
 func (s *stubSchedules) Update(_ context.Context, sc domainequipment.CalibrationSchedule) (domainequipment.CalibrationSchedule, error) {
 	s.store[sc.ID] = sc
 	return sc, nil
@@ -100,6 +116,31 @@ func TestCalibrationSchedule_CreateAndUpdate(t *testing.T) {
 		EquipmentID: "EQ-OTHER", ID: sc.ID,
 	})
 	assert.ErrorIs(t, err, shared.ErrNotFound)
+}
+
+func TestCalibrationSchedule_ListAcrossEquipment(t *testing.T) {
+	repo := newStubRepo()
+	repo.store["EQ-A-001"] = domainequipment.Equipment{ID: "EQ-A-001"}
+	repo.store["EQ-B-001"] = domainequipment.Equipment{ID: "EQ-B-001"}
+	scheds := newStubSchedules()
+	uc := applicationequipment.NewCalibrationScheduleUseCase(repo, scheds)
+
+	due := time.Now().AddDate(0, 1, 0)
+	for _, id := range []string{"EQ-A-001", "EQ-B-001"} {
+		_, err := uc.Create(context.Background(), applicationequipment.CreateCalibrationScheduleInput{
+			EquipmentID: id, Label: "l", NextDueDate: due,
+		})
+		require.NoError(t, err)
+	}
+
+	all, err := uc.List(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Len(t, all, 2)
+
+	filtered, err := uc.List(context.Background(), []string{"EQ-A-001"})
+	require.NoError(t, err)
+	require.Len(t, filtered, 1)
+	assert.Equal(t, "EQ-A-001", filtered[0].EquipmentID)
 }
 
 func TestRecordCalibration_AutoAdvancesMatchingSchedule(t *testing.T) {

@@ -119,6 +119,10 @@ type ItemResponse struct {
 	Manufacturer    string  `json:"manufacturer"`
 	VendorID        *string `json:"vendor_id"`
 	LocationID      *string `json:"location_id"`
+
+	// Derived from the item's lots (same roll-up as Quantity).
+	EarliestExpireDate *time.Time `json:"earliest_expire_date"`
+	LotCount           int        `json:"lot_count"`
 }
 
 func toResponse(i inventory.InventoryItem) ItemResponse {
@@ -137,5 +141,8 @@ func toResponse(i inventory.InventoryItem) ItemResponse {
 		Manufacturer:    i.Manufacturer,
 		VendorID:        i.VendorID,
 		LocationID:      i.LocationID,
+
+		EarliestExpireDate: i.EarliestExpireDate,
+		LotCount:           i.LotCount,
 	}
 }

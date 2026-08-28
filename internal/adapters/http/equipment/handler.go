@@ -2,6 +2,7 @@ package equipment
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
@@ -261,6 +262,37 @@ func (h *Handler) ListCalibrationEvents(c fiber.Ctx) error {
 //	@Router			/equipment/{id}/calibration-schedules [get]
 func (h *Handler) ListCalibrationSchedules(c fiber.Ctx) error {
 	scheds, err := h.schedules.ListByEquipment(c.Context(), c.Params("id"))
+	if err != nil {
+		return err
+	}
+	out := make([]CalibrationScheduleResponse, len(scheds))
+	for i, s := range scheds {
+		out[i] = toCalibrationScheduleResponse(s)
+	}
+	return response.OK(c, out)
+}
+
+// ListAllCalibrationSchedules godoc
+//
+//	@Summary		รายการตารางสอบเทียบข้ามทุกอุปกรณ์
+//	@Description	คืน calibration schedule ทุกเครื่องใน request เดียว (frontend จัดกลุ่มตาม equipment_id เอง) ตาม ADR 0006
+//	@Tags			equipment
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			equipment_id	query		string	false	"กรองตาม equipment id (คั่นด้วย comma), ไม่ส่ง = ทั้งหมด"
+//	@Success		200				{object}	response.Envelope{data=[]CalibrationScheduleResponse}
+//	@Failure		401				{object}	response.Envelope
+//	@Router			/calibration-schedules [get]
+func (h *Handler) ListAllCalibrationSchedules(c fiber.Ctx) error {
+	var ids []string
+	if v := strings.TrimSpace(c.Query("equipment_id")); v != "" {
+		for _, part := range strings.Split(v, ",") {
+			if p := strings.TrimSpace(part); p != "" {
+				ids = append(ids, p)
+			}
+		}
+	}
+	scheds, err := h.schedules.List(c.Context(), ids)
 	if err != nil {
 		return err
 	}

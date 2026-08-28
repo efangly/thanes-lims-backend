@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/inventory"
 	"github.com/efangly/thanes-lims-backend/internal/domain/shared"
@@ -53,16 +54,27 @@ func toModel(i inventory.InventoryItem) Model {
 	}
 }
 
-// sumByItem returns the derived on-hand quantity (sum of InventoryLot
-// quantities) per item id. Items with no lots are simply absent from the
-// map, which reads back as zero.
-func (r *Repository) sumByItem(ctx context.Context, itemIDs ...string) (map[string]int, error) {
+// lotAgg is the per-item roll-up of an item's InventoryLots.
+type lotAgg struct {
+	Total    int
+	LotCount int
+	Earliest *time.Time
+}
+
+// sumByItem returns the derived lot roll-up (on-hand quantity, lot count,
+// earliest expiry) per item id, computed in one grouped query. Items with
+// no lots are simply absent from the map, which reads back as the zero
+// lotAgg (quantity 0, no expiry). MIN(expire_date) ignores NULLs, so lots
+// with no expiry do not affect Earliest.
+func (r *Repository) sumByItem(ctx context.Context, itemIDs ...string) (map[string]lotAgg, error) {
 	type row struct {
-		ItemID string
-		Total  int
+		ItemID   string
+		Total    int
+		LotCount int
+		Earliest *time.Time
 	}
 	q := r.db.WithContext(ctx).Model(&LotModel{}).
-		Select("item_id, COALESCE(SUM(quantity), 0) AS total").
+		Select("item_id, COALESCE(SUM(quantity), 0) AS total, COUNT(*) AS lot_count, MIN(expire_date) AS earliest").
 		Group("item_id")
 	if len(itemIDs) > 0 {
 		q = q.Where("item_id IN ?", itemIDs)
@@ -71,9 +83,9 @@ func (r *Repository) sumByItem(ctx context.Context, itemIDs ...string) (map[stri
 	if err := q.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	out := make(map[string]int, len(rows))
+	out := make(map[string]lotAgg, len(rows))
 	for _, x := range rows {
-		out[x.ItemID] = x.Total
+		out[x.ItemID] = lotAgg{Total: x.Total, LotCount: x.LotCount, Earliest: x.Earliest}
 	}
 	return out, nil
 }
@@ -101,7 +113,10 @@ func (r *Repository) FindByID(ctx context.Context, id string) (inventory.Invento
 		return inventory.InventoryItem{}, err
 	}
 	item := toDomain(m)
-	item.Quantity = sums[id]
+	agg := sums[id]
+	item.Quantity = agg.Total
+	item.LotCount = agg.LotCount
+	item.EarliestExpireDate = agg.Earliest
 	return item, nil
 }
 
@@ -117,7 +132,10 @@ func (r *Repository) List(ctx context.Context) ([]inventory.InventoryItem, error
 	out := make([]inventory.InventoryItem, len(models))
 	for i, m := range models {
 		item := toDomain(m)
-		item.Quantity = sums[m.ID]
+		agg := sums[m.ID]
+		item.Quantity = agg.Total
+		item.LotCount = agg.LotCount
+		item.EarliestExpireDate = agg.Earliest
 		out[i] = item
 	}
 	return out, nil

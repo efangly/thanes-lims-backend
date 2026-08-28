@@ -420,6 +420,60 @@
                 }
             }
         },
+        "/calibration-schedules": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "คืน calibration schedule ทุกเครื่องใน request เดียว (frontend จัดกลุ่มตาม equipment_id เอง) ตาม ADR 0006",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "equipment"
+                ],
+                "summary": "รายการตารางสอบเทียบข้ามทุกอุปกรณ์",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "กรองตาม equipment id (คั่นด้วย comma), ไม่ส่ง = ทั้งหมด",
+                        "name": "equipment_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/documents": {
             "get": {
                 "security": [
@@ -4871,11 +4925,18 @@
                 "default_vendor": {
                     "type": "string"
                 },
+                "earliest_expire_date": {
+                    "description": "Derived from the item's lots (same roll-up as Quantity).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
                 "location_id": {
                     "type": "string"
+                },
+                "lot_count": {
+                    "type": "integer"
                 },
                 "manufacturer": {
                     "type": "string"

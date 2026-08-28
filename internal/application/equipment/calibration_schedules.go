@@ -58,6 +58,13 @@ func (uc *CalibrationScheduleUseCase) ListByEquipment(ctx context.Context, equip
 	return uc.schedules.ListByEquipment(ctx, equipmentID)
 }
 
+// List returns calibration schedules across every Equipment, optionally
+// narrowed to a set of equipment ids (nil/empty = all). Backs the
+// cross-Equipment table column in the equipment registry (ADR 0006).
+func (uc *CalibrationScheduleUseCase) List(ctx context.Context, equipmentIDs []string) ([]equipment.CalibrationSchedule, error) {
+	return uc.schedules.List(ctx, equipmentIDs)
+}
+
 type UpdateCalibrationScheduleInput struct {
 	EquipmentID    string
 	ID             int64

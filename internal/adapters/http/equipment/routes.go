@@ -24,4 +24,5 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	eq.Delete("/:id/calibration-schedules/:scheduleId", middleware.RequirePermission(rbac.ModuleEquipment, rbac.ActionEdit), h.DeleteCalibrationSchedule)
 
 	r.Get("/calibration-results", authGuard, middleware.RequirePermission(rbac.ModuleEquipment, rbac.ActionView), h.SearchCalibrationResults)
+	r.Get("/calibration-schedules", authGuard, middleware.RequirePermission(rbac.ModuleEquipment, rbac.ActionView), h.ListAllCalibrationSchedules)
 }

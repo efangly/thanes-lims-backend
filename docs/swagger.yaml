@@ -361,10 +361,15 @@ definitions:
         type: integer
       default_vendor:
         type: string
+      earliest_expire_date:
+        description: Derived from the item's lots (same roll-up as Quantity).
+        type: string
       id:
         type: string
       location_id:
         type: string
+      lot_count:
+        type: integer
       manufacturer:
         type: string
       max:
@@ -1012,6 +1017,38 @@ paths:
       security:
       - BearerAuth: []
       summary: ค้นหาผลการสอบเทียบทั้งหมด
+      tags:
+      - equipment
+  /calibration-schedules:
+    get:
+      description: คืน calibration schedule ทุกเครื่องใน request เดียว (frontend จัดกลุ่มตาม
+        equipment_id เอง) ตาม ADR 0006
+      parameters:
+      - description: กรองตาม equipment id (คั่นด้วย comma), ไม่ส่ง = ทั้งหมด
+        in: query
+        name: equipment_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_equipment.CalibrationScheduleResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการตารางสอบเทียบข้ามทุกอุปกรณ์
       tags:
       - equipment
   /documents:
