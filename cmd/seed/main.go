@@ -254,7 +254,7 @@ func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repo
 		// Each sample gets its own leaf Slot - len(leaves) (75) comfortably
 		// exceeds total (40), so no two samples ever contend for the same
 		// leaf regardless of the status transitions applied below.
-		created, err = assignLocation.Execute(ctx, created.ID, leaves[i%len(leaves)])
+		created, err = assignLocation.Execute(ctx, created.ID, leaves[i%len(leaves)], nil)
 		if err != nil {
 			log.Fatalf("seed sample %d: assign location: %v", i, err)
 		}

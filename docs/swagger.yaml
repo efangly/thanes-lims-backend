@@ -466,6 +466,30 @@ definitions:
       vendor_id:
         type: string
     type: object
+  internal_adapters_http_location.BoxCellResponse:
+    properties:
+      position:
+        type: string
+      sample_id:
+        type: string
+    type: object
+  internal_adapters_http_location.CreateBoxRequest:
+    properties:
+      cols:
+        maximum: 99
+        minimum: 1
+        type: integer
+      name:
+        type: string
+      rows:
+        maximum: 26
+        minimum: 1
+        type: integer
+    required:
+    - cols
+    - name
+    - rows
+    type: object
   internal_adapters_http_location.CreateCabinetRequest:
     properties:
       kind:
@@ -480,6 +504,20 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  internal_adapters_http_location.EnlargeBoxRequest:
+    properties:
+      cols:
+        maximum: 99
+        minimum: 1
+        type: integer
+      rows:
+        maximum: 26
+        minimum: 1
+        type: integer
+    required:
+    - cols
+    - rows
     type: object
   internal_adapters_http_location.FullPathResponse:
     properties:
@@ -501,6 +539,8 @@ definitions:
     properties:
       barcode_code:
         type: string
+      cols:
+        type: integer
       id:
         type: string
       kind:
@@ -511,6 +551,29 @@ definitions:
         type: string
       parent_id:
         type: string
+      rows:
+        description: Rows/Cols are the Box Grid; omitted for non-Box nodes.
+        type: integer
+    type: object
+  internal_adapters_http_location.MoveItem:
+    properties:
+      position:
+        type: string
+      sample_id:
+        type: string
+    required:
+    - position
+    - sample_id
+    type: object
+  internal_adapters_http_location.MoveWithinBoxRequest:
+    properties:
+      moves:
+        items:
+          $ref: '#/definitions/internal_adapters_http_location.MoveItem'
+        minItems: 1
+        type: array
+    required:
+    - moves
     type: object
   internal_adapters_http_notification.NotificationResponse:
     properties:
@@ -568,6 +631,11 @@ definitions:
         type: string
       location_id:
         type: string
+      position:
+        description: |-
+          Position is the Cell ("A1") - required when the target is a Box,
+          rejected otherwise (docs/adr/0009).
+        type: string
     type: object
   internal_adapters_http_sample.CoCStepResponse:
     properties:
@@ -618,6 +686,8 @@ definitions:
       location_id:
         type: string
       name:
+        type: string
+      position:
         type: string
       received_at:
         type: string
@@ -2276,6 +2346,90 @@ paths:
       summary: ลบ Location
       tags:
       - locations
+    get:
+      description: ใช้ resolve node ที่ deep-link มา (เช่น Box ที่ต้องรู้ rows/cols)
+      parameters:
+      - description: Location ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_location.LocationResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึง Location เดียวตาม id
+      tags:
+      - locations
+  /locations/{id}/boxes:
+    post:
+      consumes:
+      - application/json
+      description: สร้าง Location level_type=box พร้อม Grid (rows×cols) — ห้อยใต้
+        Shelf/Slot/Sub-slot เท่านั้น และไม่มี Location ลูก
+      parameters:
+      - description: Parent Location ID (shelf/slot/sub_slot)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ชื่อกล่อง + ขนาด Grid
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_location.CreateBoxRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_location.LocationResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: สร้างกล่อง (Box) ใต้ shelf/slot/sub_slot
+      tags:
+      - locations
   /locations/{id}/children:
     post:
       consumes:
@@ -2361,6 +2515,105 @@ paths:
       security:
       - BearerAuth: []
       summary: รหัสเต็มของ Location (Full Path)
+      tags:
+      - locations
+  /locations/{id}/grid:
+    patch:
+      consumes:
+      - application/json
+      description: กล่องขยายได้อย่างเดียว ห้ามหด (rows/cols ใหม่ต้อง ≥ เดิม)
+      parameters:
+      - description: Box Location ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ขนาด Grid ใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_location.EnlargeBoxRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_location.LocationResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ขยาย Grid ของกล่อง
+      tags:
+      - locations
+  /locations/{id}/moves:
+    post:
+      consumes:
+      - application/json
+      description: จัดเรียง Cell ภายในกล่องเดียวแบบ atomic — ลากหลายตัว/สลับสองช่อง
+        ลงทั้งหมดหรือไม่ลงเลย; ชนกัน = 409 ทั้ง batch. ย้ายข้ามกล่องให้ใช้ put-away
+      parameters:
+      - description: Box Location ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: รายการ {sample_id, position}
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_location.MoveWithinBoxRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_location.BoxCellResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ย้ายตำแหน่งตัวอย่างภายในกล่อง (batch)
       tags:
       - locations
   /locations/by-barcode/{code}:
@@ -2640,6 +2893,10 @@ paths:
       - description: กรองด้วยชื่อ Location (บางส่วน)
         in: query
         name: location
+        type: string
+      - description: กรองด้วย Location ID ตรงเป๊ะ (เช่น ดูตัวอย่างทั้งหมดในกล่อง)
+        in: query
+        name: location_id
         type: string
       produces:
       - application/json

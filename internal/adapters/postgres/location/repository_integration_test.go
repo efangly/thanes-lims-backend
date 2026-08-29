@@ -93,6 +93,46 @@ func TestLocationRepository_TreeCRUD(t *testing.T) {
 	assert.ErrorIs(t, err, shared.ErrNotFound)
 }
 
+func TestLocationRepository_Box(t *testing.T) {
+	db := pgtest.SetupPostgres(t)
+	repo := location.New(db)
+	ctx := context.Background()
+
+	cabinet, err := repo.Create(ctx, domainlocation.Location{
+		ID: "LOC-B0", Name: "Fridge-Box", Kind: domainlocation.KindSampleStorage,
+		LevelType: domainlocation.LevelCabinet, BarcodeCode: "LOC-BC-B0",
+	})
+	require.NoError(t, err)
+	shelfID := "LOC-B1"
+	cabID := cabinet.ID
+	_, err = repo.Create(ctx, domainlocation.Location{
+		ID: shelfID, ParentID: &cabID, Name: "Shelf-B", Kind: domainlocation.KindSampleStorage,
+		LevelType: domainlocation.LevelShelf, BarcodeCode: "LOC-BC-B1",
+	})
+	require.NoError(t, err)
+
+	box, err := repo.Create(ctx, domainlocation.Location{
+		ID: "LOC-B2", ParentID: &shelfID, Name: "Box-1", Kind: domainlocation.KindSampleStorage,
+		LevelType: domainlocation.LevelBox, BarcodeCode: "LOC-BC-B2", Rows: 8, Cols: 12,
+	})
+	require.NoError(t, err)
+	assert.True(t, box.IsBox())
+	assert.Equal(t, 8, box.Rows)
+	assert.Equal(t, 12, box.Cols)
+
+	reloaded, err := repo.GetByID(ctx, box.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 8, reloaded.Rows)
+
+	grown, err := repo.UpdateGrid(ctx, box.ID, 10, 12)
+	require.NoError(t, err)
+	assert.Equal(t, 10, grown.Rows)
+
+	// A non-box row must keep NULL rows/cols - the CHECK constraint enforces it.
+	err = db.Exec(`UPDATE locations SET rows = 3 WHERE id = ?`, shelfID).Error
+	assert.Error(t, err)
+}
+
 func TestLocationRepository_NotFound(t *testing.T) {
 	db := pgtest.SetupPostgres(t)
 	repo := location.New(db)

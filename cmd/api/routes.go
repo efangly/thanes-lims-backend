@@ -123,6 +123,10 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationlocation.NewGetFullPathUseCase(locationRepo),
 		applicationlocation.NewDeleteLocationUseCase(locationRepo, sampleRepo),
 		applicationlocation.NewLookupByBarcodeUseCase(locationRepo),
+		applicationlocation.NewGetLocationUseCase(locationRepo),
+		applicationlocation.NewCreateBoxUseCase(locationRepo, idgen),
+		applicationlocation.NewEnlargeBoxUseCase(locationRepo),
+		applicationsample.NewMoveWithinBoxUseCase(sampleRepo, locationRepo),
 	)
 	httplocation.RegisterRoutes(v1, locationHandler, tokens)
 

@@ -148,3 +148,42 @@ Body: { "location_id": "LOC-00042" }
 | 401  | `unauthorized`       | ไม่ได้ login / token หมดอายุ |
 | 404  | `not_found`          | location/sample id ไม่มีจริง |
 | 409  | `conflict`           | ชื่อตู้ซ้ำ, sibling ชื่อซ้ำตอน generate children, ลบ location ที่ยังมีลูก/sample, assign เข้า leaf ที่ active sample ครองอยู่แล้ว |
+
+---
+
+## Box (กล่องกริด) — ADR-0009
+
+**Box** คือ Location `level_type = "box"` ที่เก็บ Sample ได้หลายตัวพร้อมกัน ตัวละ 1 **Cell** — ต่างจาก leaf ปกติที่เก็บได้ตัวเดียว
+
+- Box **ห้อยใต้ `shelf` / `slot` / `sub_slot`** เท่านั้น (ไม่ผูกความลึกตายตัว) และ **ไม่มี Location ลูก** เสมอ — leaf detection ต้องกันไว้: node ที่ `level_type === "box"` ไม่ใช่ leaf แม้จะไม่มีลูก
+- Box มี **Grid**: field `rows` (≤ 26, ตั้งชื่อแถวเป็น A..Z) และ `cols` (≤ 99) บน `LocationResponse` (omitempty สำหรับ node ที่ไม่ใช่ box)
+- **Cell** ไม่ใช่ node — เป็น string `position` บน Sample (`"A1"`, `"H12"`, `A1` มุมซ้ายบน) field `position` บน `SampleResponse` เป็น `null` เมื่อ Sample ไม่ได้อยู่ในกล่อง
+- Occupancy ของกล่อง = "1 active sample ต่อ `(location_id, position)`" — Sample ในกล่องมี position เสมอ ไม่มีสถานะ "อยู่ในกล่องแต่ยังไม่ระบุช่อง"
+
+### `POST /locations/{id}/boxes` — สร้างกล่อง
+
+`{id}` = parent (shelf/slot/sub_slot). body: `{ "name": "Box-1", "rows": 8, "cols": 12 }` → `201` `LocationResponse` (`level_type: "box"`, มี `rows`/`cols`). ชื่อซ้ำ sibling → `409`; parent ผิดระดับ / grid เกินขอบเขต → `400`
+
+### `PATCH /locations/{id}/grid` — ขยายกริด
+
+body: `{ "rows": 10, "cols": 12 }` → `200` `LocationResponse`. **กล่องขยายได้อย่างเดียว** — `rows`/`cols` ใหม่ต้อง ≥ เดิม ไม่งั้น `400`. ไม่ใช่กล่อง → `400`
+
+### `PATCH /samples/{id}/location` — put-away เข้ากล่อง
+
+เพิ่ม field `position` ใน body:
+- ปลายทางเป็น **กล่อง**: `position` **จำเป็น** ต้องอยู่ในกริด และ Cell นั้นต้องว่าง — ไม่งั้น `400` / `409`
+- ปลายทางเป็น **leaf ปกติ**: ห้ามส่ง `position` (ส่งมา → `400`); กติกาเดิมทุกอย่าง
+- ย้าย Sample ข้ามกล่องก็ใช้ endpoint นี้ (ไม่ใช่ `/moves`)
+
+### `POST /locations/{id}/moves` — ย้ายตำแหน่งภายในกล่อง (batch)
+
+`{id}` = box. body: `{ "moves": [ { "sample_id": "SMP-...", "position": "B2" }, ... ] }` → `200` `[{ "sample_id", "position" }]` (ผังกล่องหลังย้าย)
+
+- **atomic ทั้ง batch** — ลากหลายตัว/สลับสองช่อง ลงทั้งหมดหรือไม่ลงเลย
+- ทุก Sample ในชุดต้อง **อยู่ในกล่องนี้อยู่แล้ว** (ย้ายเข้าจากที่อื่น = ใช้ put-away) → ไม่งั้น `400`
+- position ชนกัน (กับ Sample ที่ไม่ได้ถูกย้าย หรือซ้ำกันในชุด) → `409` ทั้ง batch
+- position นอกกริด → `400`
+
+### `GET /samples?location_id={boxId}` — ดู Sample ทั้งหมดในกล่อง
+
+filter `location_id` (exact match) เพิ่มใหม่ — ใช้ render ผังช่องของกล่อง

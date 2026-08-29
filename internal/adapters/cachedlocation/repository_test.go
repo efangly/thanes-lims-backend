@@ -48,6 +48,10 @@ func (m *mockRepo) HasChildren(ctx context.Context, id string) (bool, error) {
 	args := m.Called(ctx, id)
 	return args.Bool(0), args.Error(1)
 }
+func (m *mockRepo) UpdateGrid(ctx context.Context, id string, rows, cols int) (location.Location, error) {
+	args := m.Called(ctx, id, rows, cols)
+	return args.Get(0).(location.Location), args.Error(1)
+}
 func (m *mockRepo) Delete(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)

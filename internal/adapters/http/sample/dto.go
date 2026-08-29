@@ -24,6 +24,9 @@ type UpdateStatusRequest struct {
 type AssignLocationRequest struct {
 	LocationID          string `json:"location_id"`
 	LocationBarcodeCode string `json:"location_barcode_code"`
+	// Position is the Cell ("A1") - required when the target is a Box,
+	// rejected otherwise (docs/adr/0009).
+	Position *string `json:"position"`
 }
 
 type AppendCoCStepRequest struct {
@@ -41,6 +44,7 @@ type SampleResponse struct {
 	ReceivedAt      time.Time `json:"received_at"`
 	BarcodeID       *string   `json:"barcode_id"`
 	Description     string    `json:"description"`
+	Position        *string   `json:"position"`
 }
 
 func toSampleResponse(s sample.Sample) SampleResponse {
@@ -54,6 +58,7 @@ func toSampleResponse(s sample.Sample) SampleResponse {
 		ReceivedAt:      s.ReceivedAt,
 		BarcodeID:       s.BarcodeID,
 		Description:     s.Description,
+		Position:        s.Position,
 	}
 }
 

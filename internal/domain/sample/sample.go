@@ -68,6 +68,10 @@ type Sample struct {
 	BarcodeID *string
 	// Description is free-text notes captured on the create-sample popup.
 	Description string
+	// Position is the Cell ("A1", "H12") this Sample occupies when its
+	// LocationID points at a Box; nil for a Sample on a plain leaf or with
+	// no Location at all (docs/adr/0009).
+	Position *string
 }
 
 func (s Sample) CanTransition(to Status) bool {

@@ -26,6 +26,9 @@ type LocationRepository interface {
 	// shared.ErrNotFound if no non-Retired Location carries that code.
 	FindByBarcode(ctx context.Context, code string) (location.Location, error)
 	HasChildren(ctx context.Context, id string) (bool, error)
+	// UpdateGrid enlarges a Box's Grid to rows x cols. Boxes only grow;
+	// callers enforce that (docs/adr/0009).
+	UpdateGrid(ctx context.Context, id string, rows, cols int) (location.Location, error)
 	Delete(ctx context.Context, id string) error
 	// FullPath returns the human-readable ancestor chain down to id (e.g.
 	// "Fridge-A / Shelf-2 / Slot-4"), computed from the tree on every call.

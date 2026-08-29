@@ -2534,6 +2534,62 @@ const docTemplate = `{
             }
         },
         "/locations/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ใช้ resolve node ที่ deep-link มา (เช่น Box ที่ต้องรู้ rows/cols)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "locations"
+                ],
+                "summary": "ดึง Location เดียวตาม id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Location ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_location.LocationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -2560,6 +2616,88 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "no content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/{id}/boxes": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "สร้าง Location level_type=box พร้อม Grid (rows×cols) — ห้อยใต้ Shelf/Slot/Sub-slot เท่านั้น และไม่มี Location ลูก",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "locations"
+                ],
+                "summary": "สร้างกล่อง (Box) ใต้ shelf/slot/sub_slot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Parent Location ID (shelf/slot/sub_slot)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ชื่อกล่อง + ขนาด Grid",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_location.CreateBoxRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_location.LocationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -2718,6 +2856,167 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/{id}/grid": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "กล่องขยายได้อย่างเดียว ห้ามหด (rows/cols ใหม่ต้อง ≥ เดิม)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "locations"
+                ],
+                "summary": "ขยาย Grid ของกล่อง",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Box Location ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ขนาด Grid ใหม่",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_location.EnlargeBoxRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_location.LocationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/{id}/moves": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "จัดเรียง Cell ภายในกล่องเดียวแบบ atomic — ลากหลายตัว/สลับสองช่อง ลงทั้งหมดหรือไม่ลงเลย; ชนกัน = 409 ทั้ง batch. ย้ายข้ามกล่องให้ใช้ put-away",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "locations"
+                ],
+                "summary": "ย้ายตำแหน่งตัวอย่างภายในกล่อง (batch)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Box Location ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "รายการ {sample_id, position}",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_location.MoveWithinBoxRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_adapters_http_location.BoxCellResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
@@ -3139,6 +3438,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "กรองด้วยชื่อ Location (บางส่วน)",
                         "name": "location",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "กรองด้วย Location ID ตรงเป๊ะ (เช่น ดูตัวอย่างทั้งหมดในกล่อง)",
+                        "name": "location_id",
                         "in": "query"
                     }
                 ],
@@ -5093,6 +5398,40 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_adapters_http_location.BoxCellResponse": {
+            "type": "object",
+            "properties": {
+                "position": {
+                    "type": "string"
+                },
+                "sample_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_location.CreateBoxRequest": {
+            "type": "object",
+            "required": [
+                "cols",
+                "name",
+                "rows"
+            ],
+            "properties": {
+                "cols": {
+                    "type": "integer",
+                    "maximum": 99,
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rows": {
+                    "type": "integer",
+                    "maximum": 26,
+                    "minimum": 1
+                }
+            }
+        },
         "internal_adapters_http_location.CreateCabinetRequest": {
             "type": "object",
             "required": [
@@ -5109,6 +5448,25 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_location.EnlargeBoxRequest": {
+            "type": "object",
+            "required": [
+                "cols",
+                "rows"
+            ],
+            "properties": {
+                "cols": {
+                    "type": "integer",
+                    "maximum": 99,
+                    "minimum": 1
+                },
+                "rows": {
+                    "type": "integer",
+                    "maximum": 26,
+                    "minimum": 1
                 }
             }
         },
@@ -5142,6 +5500,9 @@ const docTemplate = `{
                 "barcode_code": {
                     "type": "string"
                 },
+                "cols": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5156,6 +5517,40 @@ const docTemplate = `{
                 },
                 "parent_id": {
                     "type": "string"
+                },
+                "rows": {
+                    "description": "Rows/Cols are the Box Grid; omitted for non-Box nodes.",
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_adapters_http_location.MoveItem": {
+            "type": "object",
+            "required": [
+                "position",
+                "sample_id"
+            ],
+            "properties": {
+                "position": {
+                    "type": "string"
+                },
+                "sample_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_location.MoveWithinBoxRequest": {
+            "type": "object",
+            "required": [
+                "moves"
+            ],
+            "properties": {
+                "moves": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_location.MoveItem"
+                    }
                 }
             }
         },
@@ -5244,6 +5639,10 @@ const docTemplate = `{
                 },
                 "location_id": {
                     "type": "string"
+                },
+                "position": {
+                    "description": "Position is the Cell (\"A1\") - required when the target is a Box,\nrejected otherwise (docs/adr/0009).",
+                    "type": "string"
                 }
             }
         },
@@ -5320,6 +5719,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "position": {
                     "type": "string"
                 },
                 "received_at": {

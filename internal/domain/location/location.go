@@ -40,6 +40,19 @@ const (
 	LevelBuilding LevelType = "building"
 	LevelRoom     LevelType = "room"
 	LevelZone     LevelType = "zone"
+
+	// LevelBox is a terminal marker in the Sample tree, not a fixed depth: a
+	// Box hangs off a Shelf, Slot, or Sub-slot, carries a Grid, holds many
+	// samples by Cell position and never has child Locations (docs/adr/0009).
+	// It is deliberately absent from hierarchies below.
+	LevelBox LevelType = "box"
+)
+
+// maxBoxRows / maxBoxCols bound a Box Grid: rows are named A..Z, columns are
+// two digits. Mirrors the CHECK constraint in migration 000036.
+const (
+	maxBoxRows = 26
+	maxBoxCols = 99
 )
 
 // hierarchies is the fixed, ordered list of LevelTypes for each Kind, root
@@ -113,10 +126,85 @@ type Location struct {
 	Kind        Kind
 	LevelType   LevelType
 	BarcodeCode string
+	// Rows and Cols are the Box Grid dimensions - non-zero only when
+	// LevelType is LevelBox (docs/adr/0009).
+	Rows int
+	Cols int
 }
 
 func (l Location) IsRoot() bool {
 	return l.ParentID == nil
+}
+
+// IsBox reports whether this Location is a Box - a Grid holder that stores
+// samples by Cell position and can never have child Locations.
+func (l Location) IsBox() bool {
+	return l.LevelType == LevelBox
+}
+
+// CanParentBox reports whether a Box may be created as a direct child of a
+// Location of Kind k at rung parent. Only the Sample tree has Boxes, and
+// only a Shelf, Slot, or Sub-slot may hold one (docs/adr/0009).
+func CanParentBox(k Kind, parent LevelType) bool {
+	if k != KindSampleStorage {
+		return false
+	}
+	switch parent {
+	case LevelShelf, LevelSlot, LevelSubSlot:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidateBox checks that rows x cols is a Grid a Box may carry: at least
+// 1x1, at most 26 rows (A..Z) by 99 columns.
+func ValidateBox(rows, cols int) error {
+	if rows < 1 || rows > maxBoxRows {
+		return fmt.Errorf("%w: box rows must be between 1 and %d", shared.ErrValidation, maxBoxRows)
+	}
+	if cols < 1 || cols > maxBoxCols {
+		return fmt.Errorf("%w: box cols must be between 1 and %d", shared.ErrValidation, maxBoxCols)
+	}
+	return nil
+}
+
+// ParsePosition turns a Cell position string ("A1", "H12") into 1-based
+// (row, col) coordinates - "A1" is (1, 1). The row is a single letter A..Z,
+// the column is 1..99 with no leading zero.
+func ParsePosition(p string) (row, col int, err error) {
+	if len(p) < 2 || len(p) > 3 {
+		return 0, 0, fmt.Errorf("%w: invalid cell position %q", shared.ErrValidation, p)
+	}
+	r := p[0]
+	if r < 'A' || r > 'Z' {
+		return 0, 0, fmt.Errorf("%w: invalid cell position %q", shared.ErrValidation, p)
+	}
+	digits := p[1:]
+	if digits[0] == '0' {
+		return 0, 0, fmt.Errorf("%w: invalid cell position %q", shared.ErrValidation, p)
+	}
+	n := 0
+	for _, d := range digits {
+		if d < '0' || d > '9' {
+			return 0, 0, fmt.Errorf("%w: invalid cell position %q", shared.ErrValidation, p)
+		}
+		n = n*10 + int(d-'0')
+	}
+	return int(r-'A') + 1, n, nil
+}
+
+// PositionInGrid reports whether p is a well-formed Cell position that falls
+// inside this Box's Grid. Always false for a non-Box.
+func (l Location) PositionInGrid(p string) bool {
+	if !l.IsBox() {
+		return false
+	}
+	row, col, err := ParsePosition(p)
+	if err != nil {
+		return false
+	}
+	return row <= l.Rows && col <= l.Cols
 }
 
 // ValidateChild checks whether candidate is allowed to be created as a

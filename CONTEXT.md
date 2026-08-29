@@ -28,7 +28,15 @@ _Avoid_: Level, type, tier
 
 **Cabinet** — A root Location (`parent` is none, `level_type` is `cabinet`). Its Name is unique across the whole tree, not just among siblings.
 
-**Leaf Location** — A Location with no children. Only a Leaf Location can be assigned to a Sample; any Level Type can be a leaf if the operator chooses not to subdivide it further (e.g. a Cabinet with no Shelves is itself a valid storage spot).
+**Leaf Location** — A Location with no children **and not a Box**. Only a Leaf Location can be assigned a Sample directly, one at a time; any Level Type can be a leaf if the operator chooses not to subdivide it further (e.g. a Cabinet with no Shelves is itself a valid storage spot).
+
+**Box** — A Location with `level_type = 'box'` that holds many Samples at once, each in an addressable Cell, instead of one Sample outright (see `docs/adr/0009`). It carries a **Grid** (`rows`, `cols` columns on `locations`, non-null only for boxes; `rows` ≤ 26, `cols` ≤ 99), hangs off a Shelf, Slot, or Sub-slot (not a fixed depth), never has child Locations, and carries a Location Barcode like any node. `level_type` is therefore no longer a pure depth indicator: `box` is a terminal marker at depth 2, 3, or 4.
+_Avoid_: Compartment, container, rack, plate
+
+**Cell** — One position inside a Box's Grid, named microplate-style (row letter `A`–`Z`, then column number: `A1`, `H12`; `A1` top-left). A Cell is **not** a Location node — it is the `position` string stored on the Sample (`samples.position`, null for every Sample not in a box). Occupancy for a box is "one active Sample per `(location_id, position)`"; a Sample in a box always has a position. Enforced by the app layer plus a partial unique index `uq_samples_box_cell_active`.
+_Avoid_: Well, slot (Slot is a Level Type), position (the field name; Cell is the thing)
+
+**Move-within-box** — Rearranging Samples among the Cells of one Box via `POST /locations/:boxId/moves` with `[{sample_id, position}]`, applied as one transaction so a multi-select drag or a two-Cell swap is atomic; a resulting position clash fails the whole batch with 409. Moving a Sample in from elsewhere is ordinary Put-away (`PATCH /samples/:id/location` with `position`), not a grid move. Boxes only grow — enlarge with `PATCH /locations/:id/grid`; shrinking is not supported (make a new box and move).
 
 **Full Path** — The human-readable chain of a Location's ancestors down to itself (e.g. "Fridge-A / Shelf-2 / Slot-4"), derived on read from the tree — never stored.
 

@@ -23,7 +23,7 @@ func toDomain(m Model) location.Location {
 	if m.BarcodeCode != nil {
 		barcode = *m.BarcodeCode
 	}
-	return location.Location{
+	l := location.Location{
 		ID:          m.ID,
 		ParentID:    m.ParentID,
 		Name:        m.Name,
@@ -31,6 +31,13 @@ func toDomain(m Model) location.Location {
 		LevelType:   location.LevelType(m.LevelType),
 		BarcodeCode: barcode,
 	}
+	if m.Rows != nil {
+		l.Rows = int(*m.Rows)
+	}
+	if m.Cols != nil {
+		l.Cols = int(*m.Cols)
+	}
+	return l
 }
 
 func toModel(l location.Location) Model {
@@ -38,7 +45,7 @@ func toModel(l location.Location) Model {
 	if l.BarcodeCode != "" {
 		barcode = &l.BarcodeCode
 	}
-	return Model{
+	m := Model{
 		ID:          l.ID,
 		ParentID:    l.ParentID,
 		Name:        l.Name,
@@ -46,6 +53,11 @@ func toModel(l location.Location) Model {
 		LevelType:   string(l.LevelType),
 		BarcodeCode: barcode,
 	}
+	if l.IsBox() {
+		rows, cols := int16(l.Rows), int16(l.Cols)
+		m.Rows, m.Cols = &rows, &cols
+	}
+	return m
 }
 
 func (r *Repository) Create(ctx context.Context, l location.Location) (location.Location, error) {
@@ -149,6 +161,20 @@ func (r *Repository) FindChildByName(ctx context.Context, parentID *string, name
 		return location.Location{}, err
 	}
 	return toDomain(m), nil
+}
+
+// UpdateGrid enlarges a Box's Grid. The caller (EnlargeBoxUseCase) has
+// already checked the Box only grows; the DB CHECK still bounds rows/cols.
+func (r *Repository) UpdateGrid(ctx context.Context, id string, rows, cols int) (location.Location, error) {
+	res := r.db.WithContext(ctx).Model(&Model{}).Where("id = ?", id).
+		Updates(map[string]any{"rows": int16(rows), "cols": int16(cols)})
+	if res.Error != nil {
+		return location.Location{}, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return location.Location{}, shared.ErrNotFound
+	}
+	return r.GetByID(ctx, id)
 }
 
 func (r *Repository) HasChildren(ctx context.Context, id string) (bool, error) {

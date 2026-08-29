@@ -5,7 +5,9 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/validate"
 	applicationlocation "github.com/efangly/thanes-lims-backend/internal/application/location"
+	applicationsample "github.com/efangly/thanes-lims-backend/internal/application/sample"
 	domainlocation "github.com/efangly/thanes-lims-backend/internal/domain/location"
+	portsample "github.com/efangly/thanes-lims-backend/internal/ports/sample"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -16,6 +18,10 @@ type Handler struct {
 	getFullPath      *applicationlocation.GetFullPathUseCase
 	deleteLocation   *applicationlocation.DeleteLocationUseCase
 	lookupByBarcode  *applicationlocation.LookupByBarcodeUseCase
+	getLocation      *applicationlocation.GetLocationUseCase
+	createBox        *applicationlocation.CreateBoxUseCase
+	enlargeBox       *applicationlocation.EnlargeBoxUseCase
+	moveWithinBox    *applicationsample.MoveWithinBoxUseCase
 }
 
 func NewHandler(
@@ -25,6 +31,10 @@ func NewHandler(
 	getFullPath *applicationlocation.GetFullPathUseCase,
 	deleteLocation *applicationlocation.DeleteLocationUseCase,
 	lookupByBarcode *applicationlocation.LookupByBarcodeUseCase,
+	getLocation *applicationlocation.GetLocationUseCase,
+	createBox *applicationlocation.CreateBoxUseCase,
+	enlargeBox *applicationlocation.EnlargeBoxUseCase,
+	moveWithinBox *applicationsample.MoveWithinBoxUseCase,
 ) *Handler {
 	return &Handler{
 		createCabinet:    createCabinet,
@@ -33,6 +43,10 @@ func NewHandler(
 		getFullPath:      getFullPath,
 		deleteLocation:   deleteLocation,
 		lookupByBarcode:  lookupByBarcode,
+		getLocation:      getLocation,
+		createBox:        createBox,
+		enlargeBox:       enlargeBox,
+		moveWithinBox:    moveWithinBox,
 	}
 }
 
@@ -139,6 +153,148 @@ func (h *Handler) GenerateChildren(c fiber.Ctx) error {
 		out[i] = toLocationResponse(l)
 	}
 	return response.Created(c, out)
+}
+
+// GetLocation godoc
+//
+//	@Summary		ดึง Location เดียวตาม id
+//	@Description	ใช้ resolve node ที่ deep-link มา (เช่น Box ที่ต้องรู้ rows/cols)
+//	@Tags			locations
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Location ID"
+//	@Success		200	{object}	response.Envelope{data=LocationResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/locations/{id} [get]
+func (h *Handler) GetLocation(c fiber.Ctx) error {
+	l, err := h.getLocation.Execute(c.Context(), c.Params("id"))
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toLocationResponse(l))
+}
+
+// CreateBox godoc
+//
+//	@Summary		สร้างกล่อง (Box) ใต้ shelf/slot/sub_slot
+//	@Description	สร้าง Location level_type=box พร้อม Grid (rows×cols) — ห้อยใต้ Shelf/Slot/Sub-slot เท่านั้น และไม่มี Location ลูก
+//	@Tags			locations
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Parent Location ID (shelf/slot/sub_slot)"
+//	@Param			request	body		CreateBoxRequest	true	"ชื่อกล่อง + ขนาด Grid"
+//	@Success		201		{object}	response.Envelope{data=LocationResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		409		{object}	response.Envelope
+//	@Router			/locations/{id}/boxes [post]
+func (h *Handler) CreateBox(c fiber.Ctx) error {
+	parentID := c.Params("id")
+
+	var req CreateBoxRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	l, err := h.createBox.Execute(c.Context(), applicationlocation.CreateBoxInput{
+		ParentID: parentID,
+		Name:     req.Name,
+		Rows:     req.Rows,
+		Cols:     req.Cols,
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(l))
+	return response.Created(c, toLocationResponse(l))
+}
+
+// EnlargeBox godoc
+//
+//	@Summary		ขยาย Grid ของกล่อง
+//	@Description	กล่องขยายได้อย่างเดียว ห้ามหด (rows/cols ใหม่ต้อง ≥ เดิม)
+//	@Tags			locations
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Box Location ID"
+//	@Param			request	body		EnlargeBoxRequest	true	"ขนาด Grid ใหม่"
+//	@Success		200		{object}	response.Envelope{data=LocationResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/locations/{id}/grid [patch]
+func (h *Handler) EnlargeBox(c fiber.Ctx) error {
+	id := c.Params("id")
+
+	var req EnlargeBoxRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	l, err := h.enlargeBox.Execute(c.Context(), applicationlocation.EnlargeBoxInput{
+		ID:   id,
+		Rows: req.Rows,
+		Cols: req.Cols,
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(l))
+	return response.OK(c, toLocationResponse(l))
+}
+
+// MoveWithinBox godoc
+//
+//	@Summary		ย้ายตำแหน่งตัวอย่างภายในกล่อง (batch)
+//	@Description	จัดเรียง Cell ภายในกล่องเดียวแบบ atomic — ลากหลายตัว/สลับสองช่อง ลงทั้งหมดหรือไม่ลงเลย; ชนกัน = 409 ทั้ง batch. ย้ายข้ามกล่องให้ใช้ put-away
+//	@Tags			locations
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Box Location ID"
+//	@Param			request	body		MoveWithinBoxRequest	true	"รายการ {sample_id, position}"
+//	@Success		200		{object}	response.Envelope{data=[]BoxCellResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		409		{object}	response.Envelope
+//	@Router			/locations/{id}/moves [post]
+func (h *Handler) MoveWithinBox(c fiber.Ctx) error {
+	id := c.Params("id")
+
+	var req MoveWithinBoxRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	moves := make([]portsample.PositionAssignment, len(req.Moves))
+	for i, m := range req.Moves {
+		moves[i] = portsample.PositionAssignment{SampleID: m.SampleID, Position: m.Position}
+	}
+
+	samples, err := h.moveWithinBox.Execute(c.Context(), applicationsample.MoveWithinBoxInput{
+		BoxID: id,
+		Moves: moves,
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditResource, "sample")
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(req))
+	return response.OK(c, toMoveResponse(samples))
 }
 
 // GetFullPath godoc

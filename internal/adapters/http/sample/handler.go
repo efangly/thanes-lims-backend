@@ -100,6 +100,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 //	@Param			barcode_id			query	string	false	"กรองด้วย Barcode ID (สแกน, ตรงเป๊ะ)"
 //	@Param			custodian_user_id	query	integer	false	"กรองตามผู้ดูแล"
 //	@Param			location			query	string	false	"กรองด้วยชื่อ Location (บางส่วน)"
+//	@Param			location_id			query	string	false	"กรองด้วย Location ID ตรงเป๊ะ (เช่น ดูตัวอย่างทั้งหมดในกล่อง)"
 //	@Success		200		{object}	response.Envelope{data=[]SampleResponse}
 //	@Failure		401		{object}	response.Envelope
 //	@Router			/samples [get]
@@ -121,6 +122,9 @@ func (h *Handler) List(c fiber.Ctx) error {
 	}
 	if loc := c.Query("location"); loc != "" {
 		filter.LocationText = &loc
+	}
+	if locID := c.Query("location_id"); locID != "" {
+		filter.LocationID = &locID
 	}
 
 	samples, err := h.list.Execute(c.Context(), filter)
@@ -242,9 +246,9 @@ func (h *Handler) AssignLocation(c fiber.Ctx) error {
 
 	var s sample.Sample
 	if hasCode {
-		s, err = h.assignLocation.ExecuteByBarcode(c.Context(), id, req.LocationBarcodeCode)
+		s, err = h.assignLocation.ExecuteByBarcode(c.Context(), id, req.LocationBarcodeCode, req.Position)
 	} else {
-		s, err = h.assignLocation.Execute(c.Context(), id, req.LocationID)
+		s, err = h.assignLocation.Execute(c.Context(), id, req.LocationID, req.Position)
 	}
 	if err != nil {
 		return err

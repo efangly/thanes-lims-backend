@@ -43,13 +43,25 @@ func (m *mockSampleRepo) UpdateStatus(ctx context.Context, s sample.Sample) (sam
 	args := m.Called(ctx, s)
 	return args.Get(0).(sample.Sample), args.Error(1)
 }
-func (m *mockSampleRepo) UpdateLocation(ctx context.Context, sampleID string, locationID *string) (sample.Sample, error) {
-	args := m.Called(ctx, sampleID, locationID)
+func (m *mockSampleRepo) UpdateLocation(ctx context.Context, sampleID string, locationID, position *string) (sample.Sample, error) {
+	args := m.Called(ctx, sampleID, locationID, position)
 	return args.Get(0).(sample.Sample), args.Error(1)
 }
 func (m *mockSampleRepo) ExistsActiveByLocation(ctx context.Context, locationID string) (bool, error) {
 	args := m.Called(ctx, locationID)
 	return args.Bool(0), args.Error(1)
+}
+func (m *mockSampleRepo) ExistsActiveByLocationPosition(ctx context.Context, locationID, position string) (bool, error) {
+	args := m.Called(ctx, locationID, position)
+	return args.Bool(0), args.Error(1)
+}
+func (m *mockSampleRepo) ListActiveByLocation(ctx context.Context, locationID string) ([]sample.Sample, error) {
+	args := m.Called(ctx, locationID)
+	return args.Get(0).([]sample.Sample), args.Error(1)
+}
+func (m *mockSampleRepo) MoveWithinBox(ctx context.Context, boxID string, moves []portsample.PositionAssignment) ([]sample.Sample, error) {
+	args := m.Called(ctx, boxID, moves)
+	return args.Get(0).([]sample.Sample), args.Error(1)
 }
 func (m *mockSampleRepo) ExistsByLocation(ctx context.Context, locationID string) (bool, error) {
 	args := m.Called(ctx, locationID)
@@ -107,6 +119,10 @@ func (m *mockLocationRepo) FindChildByName(ctx context.Context, parentID *string
 func (m *mockLocationRepo) HasChildren(ctx context.Context, id string) (bool, error) {
 	args := m.Called(ctx, id)
 	return args.Bool(0), args.Error(1)
+}
+func (m *mockLocationRepo) UpdateGrid(ctx context.Context, id string, rows, cols int) (location.Location, error) {
+	args := m.Called(ctx, id, rows, cols)
+	return args.Get(0).(location.Location), args.Error(1)
 }
 func (m *mockLocationRepo) Delete(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)

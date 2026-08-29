@@ -16,6 +16,9 @@ type Model struct {
 	ReceivedAt      time.Time
 	BarcodeID       *string
 	Description     string
+	// Position is the Box Cell ("A1") this Sample occupies; NULL unless
+	// LocationID points at a Box (docs/adr/0009).
+	Position *string
 	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003) - GORM
 	// automatically excludes non-NULL rows from Find/First and stamps this
 	// instead of removing the row on Delete.

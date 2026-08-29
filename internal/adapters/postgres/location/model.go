@@ -13,7 +13,10 @@ type Model struct {
 	Kind        string `gorm:"default:sample_storage"`
 	LevelType   string
 	BarcodeCode *string
-	CreatedAt   time.Time
+	// Rows/Cols hold a Box's Grid; NULL for every non-Box row (docs/adr/0009).
+	Rows      *int16
+	Cols      *int16
+	CreatedAt time.Time
 	// DeletedAt makes Delete a soft delete (Retired, per ADR 0003).
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

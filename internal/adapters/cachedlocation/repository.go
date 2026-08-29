@@ -91,6 +91,12 @@ func (r *CachedRepository) HasChildren(ctx context.Context, id string) (bool, er
 	return r.next.HasChildren(ctx, id)
 }
 
+// UpdateGrid passes straight through: enlarging a Box's Grid changes neither
+// its name nor its ancestor chain, so no Full Path cache entry goes stale.
+func (r *CachedRepository) UpdateGrid(ctx context.Context, id string, rows, cols int) (location.Location, error) {
+	return r.next.UpdateGrid(ctx, id, rows, cols)
+}
+
 // Delete removes the Location, then best-effort evicts its Full Path cache
 // entry so a deleted Location's path stops being served immediately rather
 // than lingering for up to fullPathTTL. A failed eviction is only logged:
