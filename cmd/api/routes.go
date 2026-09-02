@@ -27,6 +27,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
 	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
+	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
@@ -56,6 +57,10 @@ import (
 	applicationvendor "github.com/efangly/thanes-lims-backend/internal/application/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/config"
 	"github.com/efangly/thanes-lims-backend/internal/ports/cache"
+	portsinventory "github.com/efangly/thanes-lims-backend/internal/ports/inventory"
+	portspurchaseorder "github.com/efangly/thanes-lims-backend/internal/ports/purchaseorder"
+	portssample "github.com/efangly/thanes-lims-backend/internal/ports/sample"
+	portstestresult "github.com/efangly/thanes-lims-backend/internal/ports/testresult"
 	"github.com/gofiber/contrib/v3/swaggo"
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
@@ -66,7 +71,14 @@ import (
 // testresult, ... per the implementation plan). It also returns the
 // auto-reorder job so main can run it on a schedule alongside the HTTP
 // server, since it's composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+	// oracleMirror is non-nil only when the writable ADB connection is up; the
+	// wrap* helpers below then make every Postgres write also MERGE into the
+	// chatbot POC's Oracle mirror (best-effort - see internal/adapters/oracle/mirror).
+	var oracleMirror *oraclemirror.Mirror
+	if mirrorDB != nil {
+		oracleMirror = oraclemirror.New(mirrorDB)
+	}
 	// /health also probes Redis: per ADR 0005 the refresh path is fail-closed,
 	// so a Redis outage logs every user out within one access-token TTL (~15m).
 	// External monitoring must be able to alert on that before users notice.
@@ -104,9 +116,12 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	httpuser.RegisterRoutes(v1, userHandler, tokens)
 
 	idgen := postgresidgen.New(gdb)
-	sampleRepo := postgressample.New(gdb)
+	var sampleRepo portssample.SampleRepository = postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
 	locationRepo := cachedlocation.NewCachedRepository(postgreslocation.New(gdb), redisCache)
+	if oracleMirror != nil {
+		sampleRepo = oraclemirror.WrapSample(sampleRepo, oracleMirror, userRepo, locationRepo)
+	}
 
 	sampleHandler := httpsample.NewHandler(
 		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, userRepo, idgen),
@@ -147,7 +162,10 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	notificationRepo := postgresnotification.New(gdb)
 	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
 
-	testResultRepo := postgrestestresult.New(gdb)
+	var testResultRepo portstestresult.Repository = postgrestestresult.New(gdb)
+	if oracleMirror != nil {
+		testResultRepo = oraclemirror.WrapTestResult(testResultRepo, oracleMirror)
+	}
 	testResultHandler := httptestresult.NewHandler(
 		applicationtestresult.NewCreateTestResultUseCase(testResultRepo, sampleRepo, idgen),
 		applicationtestresult.NewSubmitResultUseCase(testResultRepo),
@@ -173,9 +191,14 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	)
 	httpequipment.RegisterRoutes(v1, equipmentHandler, tokens)
 
-	inventoryRepo := postgresinventory.New(gdb)
-	inventoryLotRepo := postgresinventory.NewLotRepository(gdb)
-	purchaseOrderRepo := postgrespurchaseorder.New(gdb)
+	var inventoryRepo portsinventory.Repository = postgresinventory.New(gdb)
+	var inventoryLotRepo portsinventory.LotRepository = postgresinventory.NewLotRepository(gdb)
+	var purchaseOrderRepo portspurchaseorder.Repository = postgrespurchaseorder.New(gdb)
+	if oracleMirror != nil {
+		inventoryRepo = oraclemirror.WrapInventory(inventoryRepo, oracleMirror)
+		inventoryLotRepo = oraclemirror.WrapInventoryLot(inventoryLotRepo, oracleMirror, inventoryRepo)
+		purchaseOrderRepo = oraclemirror.WrapPO(purchaseOrderRepo, oracleMirror)
+	}
 
 	reorderUseCase := applicationpurchaseorder.NewCreateFromLowStockUseCase(purchaseOrderRepo, inventoryRepo, idgen)
 

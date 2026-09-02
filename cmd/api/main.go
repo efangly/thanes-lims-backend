@@ -65,6 +65,23 @@ func main() {
 		}
 	}
 
+	// Dual-write mirror to Oracle (docs/chatbot-poc-plan.md): keeps the ADB's
+	// samples/test_results/inventory_items/purchase_orders in sync with the
+	// Postgres system of record. Needs a WRITABLE connection (ORACLE_DSN, the
+	// CHATBOT_APP user) - distinct from the chatbot's read-only one above.
+	// Best-effort: a failed connection only disables mirroring.
+	var mirrorDB *sql.DB
+	if cfg.OracleEnabled && cfg.OracleDSN != "" {
+		md, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
+		if err != nil {
+			log.Printf("oracle: mirror connect failed, dual-write disabled: %v", err)
+		} else {
+			defer md.Close()
+			mirrorDB = md
+			log.Println("oracle: mirror (dual-write) connected")
+		}
+	}
+
 	// Composition root: wire adapters -> ports -> use cases -> handlers.
 	auditRepo := postgresaudit.New(gdb)
 	logAction := applicationaudit.NewLogActionUseCase(auditRepo)
@@ -105,7 +122,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	autoReorderJob := registerRoutes(v1, cfg, gdb, chatbotDB, fileStorage, redisCache)
+	autoReorderJob := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {
