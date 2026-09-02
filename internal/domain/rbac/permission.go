@@ -22,6 +22,7 @@ const (
 	ModuleEnvironment   Module = "environment"
 	ModuleNotification  Module = "notification"
 	ModuleAudit         Module = "audit"
+	ModuleChatbot       Module = "chatbot"
 )
 
 // Action is the verb half of a Permission.

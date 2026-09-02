@@ -40,6 +40,31 @@ definitions:
       status_code:
         type: integer
     type: object
+  internal_adapters_http_chatbot.ChatRequest:
+    properties:
+      question:
+        maxLength: 500
+        type: string
+    required:
+    - question
+    type: object
+  internal_adapters_http_chatbot.ChatResponse:
+    properties:
+      answer:
+        type: string
+      cache_read_tokens:
+        type: integer
+      cache_write_tokens:
+        type: integer
+      elapsed_ms:
+        type: integer
+      rows:
+        type: integer
+      sql_queries:
+        items:
+          type: string
+        type: array
+    type: object
   internal_adapters_http_document.DocumentResponse:
     properties:
       access_level:
@@ -1121,6 +1146,52 @@ paths:
       summary: รายการตารางสอบเทียบข้ามทุกอุปกรณ์
       tags:
       - equipment
+  /chat:
+    post:
+      consumes:
+      - application/json
+      description: ถาม-ตอบ single-turn จากข้อมูล Sample/TestResult/Inventory/PurchaseOrder
+        บน Oracle ADB ผ่าน Claude API
+      parameters:
+      - description: คำถาม
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_chatbot.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_chatbot.ChatResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ถามข้อมูลห้องแล็บด้วยภาษาธรรมชาติ (POC)
+      tags:
+      - chatbot
   /documents:
     get:
       parameters:

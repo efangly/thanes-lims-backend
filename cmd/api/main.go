@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"os"
 	"os/signal"
@@ -45,13 +46,21 @@ func main() {
 	}
 
 	// Oracle ADB (chatbot POC) is optional - failure here must never crash
-	// the main API, which stays fully functional on Postgres alone.
+	// the main API, which stays fully functional on Postgres alone. The
+	// chatbot connects as the read-only CHATBOT_RO user (ORACLE_CHATBOT_DSN),
+	// falling back to ORACLE_DSN when that is unset.
+	var chatbotDB *sql.DB
 	if cfg.OracleEnabled {
-		oracleDB, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
+		dsn := cfg.OracleChatbotDSN
+		if dsn == "" {
+			dsn = cfg.OracleDSN
+		}
+		oracleDB, err := oracledb.New(dsn, cfg.OracleTNSAdmin)
 		if err != nil {
-			log.Printf("oracle: connect failed, ADB features disabled: %v", err)
+			log.Printf("oracle: connect failed, chatbot disabled: %v", err)
 		} else {
 			defer oracleDB.Close()
+			chatbotDB = oracleDB
 			log.Println("oracle: connected to ADB")
 		}
 	}
@@ -96,7 +105,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	autoReorderJob := registerRoutes(v1, cfg, gdb, fileStorage, redisCache)
+	autoReorderJob := registerRoutes(v1, cfg, gdb, chatbotDB, fileStorage, redisCache)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {

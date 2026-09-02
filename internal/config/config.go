@@ -63,6 +63,15 @@ type Config struct {
 	OracleEnabled  bool   `env:"ORACLE_ENABLED" envDefault:"false"`
 	OracleDSN      string `env:"ORACLE_DSN"`
 	OracleTNSAdmin string `env:"ORACLE_TNS_ADMIN"`
+
+	// Chatbot POC (see docs/chatbot-poc-plan.md, 2026-09-02 pivot): NL->SQL
+	// and narration run against the Claude API from Go, not Oracle Select AI.
+	// AnthropicAPIKey may be empty if the SDK resolves credentials another
+	// way (`ant auth login`). OracleChatbotDSN points at the read-only
+	// CHATBOT_RO user; empty falls back to OracleDSN.
+	AnthropicAPIKey  string `env:"ANTHROPIC_API_KEY"`
+	ChatbotModel     string `env:"CHATBOT_MODEL" envDefault:"claude-haiku-4-5-20251001"`
+	OracleChatbotDSN string `env:"ORACLE_CHATBOT_DSN"`
 }
 
 // validate checks cross-field constraints that the env tags can't express.

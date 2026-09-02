@@ -2,13 +2,19 @@
 
 ## AI Chatbot (POC)
 
-**Select AI** — Oracle Database 23ai feature (`DBMS_CLOUD_AI` package) that translates a natural-language question into SQL and executes it against tables in that same Oracle database, returning a narrated answer. Runs *inside* the Oracle DB, not as an external LLM API call from application code.
+**Select AI** — *(superseded 2026-09-02)* Oracle Database 23ai feature (`DBMS_CLOUD_AI`) that did NL→SQL inside the Oracle DB. Abandoned before it ran — see the LLM pivot in `docs/chatbot-poc-plan.md`. Replaced by the Claude tool-use loop below.
 
-**AI Profile** — A named configuration stored in the Oracle DB (via `DBMS_CLOUD_AI.CREATE_PROFILE`) that tells Select AI which LLM provider to use (this project: **OCI Generative AI**), which tables/views are in scope, and what credentials to use for that provider.
+**AI Profile** — *(superseded 2026-09-02)* the `DBMS_CLOUD_AI.CREATE_PROFILE` config object Select AI needed. Not used.
 
-**POC Oracle Instance** — A separate Oracle Autonomous Database (ADB), already provisioned, used *only* for this chatbot proof-of-concept. It is not the system of record — the SM-LIMS/Thanes LIMS backend's primary data store remains **Postgres** via GORM. The POC Oracle instance holds a synthetic, mirrored subset of the domain (Sample, TestResult, Inventory, PurchaseOrder) seeded independently — it is not synced from Postgres.
+**Claude tool-use loop** — How the chatbot works now: the Go backend calls the **Claude API** (`github.com/anthropics/anthropic-sdk-go`, model `claude-haiku-4-5-20251001`) with the ADB schema and one `run_sql` tool. Claude proposes an Oracle `SELECT`, the backend runs it read-only and feeds the rows back, Claude narrates a final Thai answer. NL→SQL happens in Go against Claude, not inside Oracle. Adapter: `internal/adapters/anthropic/chatbot`.
 
-**Chatbot module** — New module in the existing hexagonal architecture (`internal/domain/chatbot`, etc.) exposing a single-turn `POST /chat`-style endpoint on the existing Go API, reusing the existing JWT auth. Calls into the POC Oracle instance via `godror` (Oracle wallet + Instant Client) to run Select AI queries and return the narrated answer.
+**run_sql tool** — The single tool exposed to Claude in the loop. The backend executes it via `internal/adapters/oracle/chatbot` under two guardrails: a Go-side check that the statement is a lone `SELECT`/`WITH` (no DML/DDL/comments/multi-statement), and the `CHATBOT_RO` DB user which is granted `SELECT` only. Also `SET TRANSACTION READ ONLY`, a 15s timeout, and a 200-row cap.
+
+**CHATBOT_RO** — Dedicated read-only Oracle ADB user for the chatbot (`scripts/oracle/003_create_readonly_user.sql`, created by ADMIN). `SELECT` on the four POC tables and nothing else. DSN in `ORACLE_CHATBOT_DSN`; empty falls back to `ORACLE_DSN` (the read-write `CHATBOT_APP`).
+
+**POC Oracle Instance** — A separate Oracle Autonomous Database (ADB), already provisioned, used *only* for this chatbot proof-of-concept. It is not the system of record — the SM-LIMS/Thanes LIMS backend's primary data store remains **Postgres** via GORM. The POC Oracle instance holds a synthetic, mirrored subset of the domain (Sample, TestResult, Inventory, PurchaseOrder) seeded independently — it is not synced from Postgres. Since the pivot its only job is to run SELECT queries and return rows.
+
+**Chatbot module** — Module in the hexagonal architecture (`internal/domain/chatbot`, `internal/ports/chatbot`, `internal/application/chatbot`, plus the two adapters above and `internal/adapters/http/chatbot`) exposing a single-turn `POST /chat` on the existing Go API, reusing the existing JWT auth and gated by RBAC permission `chatbot:view`. Connects to the POC Oracle instance via `godror` (wallet + Instant Client).
 
 ## Sample Registry
 

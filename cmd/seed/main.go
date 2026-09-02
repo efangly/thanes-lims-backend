@@ -93,11 +93,11 @@ func main() {
 	users := seedUsers(ctx, userRepo)
 
 	locationRepo := postgreslocation.New(gdb)
-	leaves := seedLocations(ctx, locationRepo, idgen)
+	leaves, boxes := seedLocations(ctx, locationRepo, idgen)
 
 	sampleRepo := postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
-	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, locationRepo, userRepo, idgen, users, leaves)
+	samples := seedSamples(ctx, gdb, sampleRepo, cocRepo, locationRepo, userRepo, idgen, users, leaves, boxes)
 
 	testResultRepo := postgrestestresult.New(gdb)
 	seedTestResults(ctx, testResultRepo, sampleRepo, cocRepo, idgen, samples, users, notifier)
@@ -180,14 +180,26 @@ var sampleTypeSpecs = []struct {
 // returns the flat list of leaf Slot IDs for seedSamples to assign Samples
 // into. 5 cabinets x 3 shelves x 5 slots = 75 leaves, comfortably more than
 // the 40 seeded Samples so no two Samples ever share a leaf.
-func seedLocations(ctx context.Context, locations *postgreslocation.Repository, idgen *postgresidgen.Adapter) []string {
+//
+// It also hangs two Boxes (ADR-0009) off Fridge-A's first two shelves so the
+// Cell grid / drag-and-drop UI has data. Boxes sit alongside the shelf's Slots
+// (a parent's children may be mixed) and are returned separately for
+// seedSamples to fill.
+func seedLocations(ctx context.Context, locations *postgreslocation.Repository, idgen *postgresidgen.Adapter) (leaves []string, boxes []string) {
 	createCabinet := applicationlocation.NewCreateCabinetUseCase(locations, idgen)
 	generateChildren := applicationlocation.NewGenerateChildrenUseCase(locations, idgen)
+	createBox := applicationlocation.NewCreateBoxUseCase(locations, idgen)
 
 	cabinetNames := []string{"Fridge-A", "Freezer-1", "Shelf-B", "Shelf-C", "Shelf-D"}
+	boxSpecs := map[int]struct {
+		name       string
+		rows, cols int
+	}{
+		0: {"Cryobox-A1", 9, 9},
+		1: {"Cryobox-A2", 8, 12},
+	}
 
-	var leaves []string
-	for _, name := range cabinetNames {
+	for ci, name := range cabinetNames {
 		cabinet, err := createCabinet.Execute(ctx, applicationlocation.CreateCabinetInput{Name: name})
 		if err != nil {
 			log.Fatalf("seed location cabinet %s: %v", name, err)
@@ -200,7 +212,7 @@ func seedLocations(ctx context.Context, locations *postgreslocation.Repository, 
 			log.Fatalf("seed location shelves for %s: %v", name, err)
 		}
 
-		for _, shelf := range shelves {
+		for si, shelf := range shelves {
 			slots, err := generateChildren.Execute(ctx, applicationlocation.GenerateChildrenInput{
 				ParentID: shelf.ID, Prefix: "Slot", Count: 5,
 			})
@@ -210,14 +222,26 @@ func seedLocations(ctx context.Context, locations *postgreslocation.Repository, 
 			for _, slot := range slots {
 				leaves = append(leaves, slot.ID)
 			}
+
+			if ci == 0 {
+				if spec, ok := boxSpecs[si]; ok {
+					box, err := createBox.Execute(ctx, applicationlocation.CreateBoxInput{
+						ParentID: shelf.ID, Name: spec.name, Rows: spec.rows, Cols: spec.cols,
+					})
+					if err != nil {
+						log.Fatalf("seed box %s: %v", spec.name, err)
+					}
+					boxes = append(boxes, box.ID)
+				}
+			}
 		}
 	}
 
-	log.Printf("seed: created %d cabinets, %d leaf slots", len(cabinetNames), len(leaves))
-	return leaves
+	log.Printf("seed: created %d cabinets, %d leaf slots, %d boxes", len(cabinetNames), len(leaves), len(boxes))
+	return leaves, boxes
 }
 
-func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, locations *postgreslocation.Repository, userRepo *postgresuser.Repository, idgen *postgresidgen.Adapter, users map[string]domainuser.User, leaves []string) []sample.Sample {
+func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repository, coc *postgressample.CoCRepository, locations *postgreslocation.Repository, userRepo *postgresuser.Repository, idgen *postgresidgen.Adapter, users map[string]domainuser.User, leaves []string, boxes []string) []sample.Sample {
 	create := applicationsample.NewCreateSampleUseCase(samples, coc, userRepo, idgen)
 	updateStatus := applicationsample.NewUpdateSampleStatusUseCase(samples, coc)
 	assignLocation := applicationsample.NewAssignLocationUseCase(samples, locations)
@@ -292,6 +316,43 @@ func seedSamples(ctx context.Context, gdb *gorm.DB, samples *postgressample.Repo
 
 		out = append(out, created)
 	}
+
+	// A few Samples put away into Box Cells (ADR-0009) so the Cell grid and
+	// drag-and-drop UI has something to move. Cryobox-A1 gets three.
+	if len(boxes) > 0 {
+		boxCells := []string{"A1", "B3", "E5"}
+		for j, pos := range boxCells {
+			cell := pos
+			spec := sampleTypeSpecs[j%len(sampleTypeSpecs)]
+			created, err := create.Execute(ctx, applicationsample.CreateSampleInput{
+				Name:            fmt.Sprintf("%s (กล่อง Cryobox-A1)", spec.name),
+				Type:            spec.typ,
+				CustodianUserID: custodianIDs[j%len(custodianIDs)],
+				Description:     fmt.Sprintf("ตัวอย่างสาธิตการจัดเก็บในกล่อง — Cell %s", cell),
+			})
+			if err != nil {
+				log.Fatalf("seed box sample %d: %v", j, err)
+			}
+			if _, err := generateBarcode.Execute(ctx, created.ID); err != nil {
+				log.Fatalf("seed box sample %d: generate barcode: %v", j, err)
+			}
+			created, err = assignLocation.Execute(ctx, created.ID, boxes[0], &cell)
+			if err != nil {
+				log.Fatalf("seed box sample %d: assign cell %s: %v", j, cell, err)
+			}
+			if j < 2 { // leave one pending, drive the other two into testing
+				created, err = updateStatus.Execute(ctx, applicationsample.UpdateSampleStatusInput{
+					SampleID: created.ID, NewStatus: sample.StatusTesting,
+					ActorRole: domainuser.RoleScientist, ActorName: users["scientist"].Name,
+				})
+				if err != nil {
+					log.Fatalf("seed box sample %d status: %v", j, err)
+				}
+			}
+			out = append(out, created)
+		}
+	}
+
 	log.Printf("seed: created %d samples", len(out))
 	return out
 }

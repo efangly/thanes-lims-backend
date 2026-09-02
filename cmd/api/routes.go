@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 
 	_ "github.com/efangly/thanes-lims-backend/docs"
+	anthropicchatbot "github.com/efangly/thanes-lims-backend/internal/adapters/anthropic/chatbot"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedenvironment"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedlocation"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedrbac"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cacheduser"
 	httpaudit "github.com/efangly/thanes-lims-backend/internal/adapters/http/audit"
+	httpchatbot "github.com/efangly/thanes-lims-backend/internal/adapters/http/chatbot"
 	httpdocument "github.com/efangly/thanes-lims-backend/internal/adapters/http/document"
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	httpequipment "github.com/efangly/thanes-lims-backend/internal/adapters/http/equipment"
@@ -23,6 +26,7 @@ import (
 	httpvendor "github.com/efangly/thanes-lims-backend/internal/adapters/http/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
@@ -38,6 +42,7 @@ import (
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
 	postgresvendor "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/vendor"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
+	applicationchatbot "github.com/efangly/thanes-lims-backend/internal/application/chatbot"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
@@ -61,7 +66,7 @@ import (
 // testresult, ... per the implementation plan). It also returns the
 // auto-reorder job so main can run it on a schedule alongside the HTTP
 // server, since it's composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
 	// /health also probes Redis: per ADR 0005 the refresh path is fail-closed,
 	// so a Redis outage logs every user out within one access-token TTL (~15m).
 	// External monitoring must be able to alert on that before users notice.
@@ -232,6 +237,15 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStora
 		applicationnotification.NewMarkAllReadUseCase(notificationRepo),
 	)
 	httpnotification.RegisterRoutes(v1, notificationHandler, tokens)
+
+	// Chatbot POC (see docs/chatbot-poc-plan.md): only mounted when the
+	// optional Oracle ADB connection succeeded at startup.
+	if chatbotDB != nil {
+		runner := oraclechatbot.New(chatbotDB)
+		assistant := anthropicchatbot.New(cfg.AnthropicAPIKey, cfg.ChatbotModel, runner)
+		chatbotHandler := httpchatbot.NewHandler(applicationchatbot.NewAskUseCase(assistant))
+		httpchatbot.RegisterRoutes(v1, chatbotHandler, tokens)
+	}
 
 	auditRepo := postgresaudit.New(gdb)
 	auditHandler := httpaudit.NewHandler(

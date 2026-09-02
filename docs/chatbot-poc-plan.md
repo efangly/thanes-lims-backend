@@ -6,6 +6,8 @@
 
 > **Scope pivot (2026-08-20)**: เดิมตั้งใจใช้ OCI Generative AI แต่ region ของ ADB ที่ provision ไว้ (`ap-samutprakan-1`) ไม่มี OCI Generative AI service ให้ใช้เลย (ไม่มีเมนูใน Console) และ tenancy ไม่ได้ subscribe region อื่นที่มี service นี้ จึงเปลี่ยนไปใช้ **OpenAI** เป็น LLM backend ของ Select AI แทน (`DBMS_CLOUD_AI` รองรับ native อยู่แล้ว) — ดู Phase 3 ด้านล่าง
 
+> **LLM pivot (2026-09-02)**: เลิกใช้ **Oracle Select AI** — เปลี่ยนมาให้ **Go backend เรียก Claude API** โดยตรง (`github.com/anthropics/anthropic-sdk-go`, model `claude-haiku-4-5-20251001`). เหตุผล: Phase 3 (Select AI) ติดค้างยาว เพราะไม่มี OpenAI API key, ไม่มี ADMIN password สำหรับ grant network ACL ให้ ADB เรียก `api.openai.com`, และ Select AI ผูกกับ provider ที่ Oracle รองรับเท่านั้น. สถาปัตยกรรมใหม่: **tool-use loop** — Go ส่ง schema + คำถามให้ Claude → Claude เรียก tool `run_sql` → Go รัน SELECT แบบ read-only (user `CHATBOT_RO` + Go guard) แล้วป้อนผลกลับ → Claude สรุปเป็นภาษาไทย. Oracle ADB เหลือหน้าที่เดียวคือรัน SQL คืนแถวข้อมูล. Phase 0–2 ใช้ได้เหมือนเดิม; Phase 3 เดิมถูกแทนที่ทั้งหมด (สคริปต์ Select AI เก็บไว้เป็นประวัติ). ดู `docs/adr` / โค้ด `internal/adapters/anthropic/chatbot`, `internal/adapters/oracle/chatbot`
+
 > **DB pivot (2026-08-21)**: เปลี่ยนไปใช้ Oracle ADB instance ใหม่ (region `ap-samutprakan-1` เดิม, wallet re-issued ที่ path เดิม `~/oracle/wallet`) — service name เปลี่ยนจาก `dblims_high` เป็น **`limsdb_high`** (DB name `G6C725E35D8F9B9_LIMSDB`) จึงต้องรีรัน Phase 0–2 ทั้งหมดบน instance ใหม่ (สร้าง user, schema, seed ใหม่ — instance เก่าไม่มีข้อมูลติดมา) อัปเดต service name ในทุกไฟล์ (`.env`, `.env.example`, `scripts/oracle/*.sql`, `grant_openai_network_acl.sh`) เรียบร้อยแล้ว; รหัสผ่าน `CHATBOT_APP` และ credential/profile objects ของ Phase 3 (ยังไม่เริ่ม) ไม่กระทบเพราะยังไม่เคยสร้างบน instance ใหม่
 
 ---
@@ -45,25 +47,36 @@
 | 5 | ตัวอย่างของ "วิภา สายใจ" มีอะไรบ้าง และสถานะเป็นอย่างไร? | 10 รายการ: SMP-2569-00003/00004/00010/00015/00018/00023/00024/00029 (completed), SMP-2569-00037/00038 (testing) |
 | 6 | PO ของรายการ "ถุงมือไนไตรไซส์ M" (INV-0002) มีสถานะอะไรบ้าง? | PO-2569-0001 (received), PO-2569-0013 (sent_to_vendor) |
 
-## Phase 3 — Select AI setup
+## Phase 3 — ~~Select AI setup~~ (superseded 2026-09-02)
 
-- [x] ~~สร้าง Credential object สำหรับ OCI Generative AI~~ — ลองแล้ว (`scripts/oracle/create_oci_credential.sh`, credential `OCI_GENAI_CRED` สร้างสำเร็จ) แต่ล้มเหลวตอนทดสอบจริง (ดู scope pivot ด้านบน) — เปลี่ยนไปใช้ OpenAI แทน; `create_ai_profile.sh` จะ drop `OCI_GENAI_CRED` ทิ้งตอนสร้าง profile ใหม่
-- [ ] สร้าง Credential object สำหรับ OpenAI (`DBMS_CLOUD.CREATE_CREDENTIAL`, username=`OPENAI`) — `scripts/oracle/create_openai_credential.sh` อ่าน `OPENAI_API_KEY` จาก `.env` ตอน execute เท่านั้น ไม่ฝัง secret ไว้ในไฟล์ที่ commit; credential name = `OPENAI_CRED`
-  - **รอ**: ยังไม่มี OpenAI API key ต้องสร้างที่ platform.openai.com ก่อน แล้วใส่ `OPENAI_API_KEY` ใน `.env`
-- [ ] Grant network ACL ให้ `CHATBOT_APP` เรียก `api.openai.com` ได้ (`DBMS_NETWORK_ACL_ADMIN.APPEND_HOST_ACE`) — `scripts/oracle/grant_openai_network_acl.sh`, ต้องรันด้วย user `ADMIN` (ครั้งเดียว) เพราะ `CHATBOT_APP` ไม่มีสิทธิ์นี้
-  - **รอ**: ยังไม่มี ADMIN password ของ ADB นี้ ต้องขอจากผู้ดูแล ใส่ `ORACLE_ADMIN_DSN` ใน `.env` ชั่วคราวตอนรันสคริปต์นี้ครั้งเดียว
-- [ ] สร้าง AI Profile ด้วย `DBMS_CLOUD_AI.CREATE_PROFILE` ระบุ provider = OpenAI, object_list จำกัดเฉพาะ 4 ตารางใน Phase 1 (`samples`, `test_results`, `inventory_items`, `purchase_orders`), model = `gpt-5.4`, ไม่เปิด `conversation` (multi-turn อยู่นอกขอบเขต) — `scripts/oracle/create_ai_profile.sh` (profile name เดิม `CHATBOT_AI_PROFILE` เพื่อไม่ต้องแก้ Phase 4)
-- [ ] ทดสอบ `SELECT AI narrate <คำถามภาษาไทย/อังกฤษ>` ตรงผ่าน SQL client (นอก Go) ก่อน ยืนยันว่า AI Profile ตอบคำถาม scenario ที่ออกแบบใน Phase 2 ได้ถูกต้อง — ปรับ comment/schema ใน Phase 1 ถ้าคำตอบยังไม่แม่น
+> ทั้ง section ถูกแทนที่ด้วย "Phase 3′ — Claude API setup" ด้านล่าง. สคริปต์ `scripts/oracle/create_openai_credential.sh`, `grant_openai_network_acl.sh`, `create_ai_profile.sh`, `create_oci_credential.sh` เก็บไว้เป็นประวัติ ไม่ใช้แล้ว. ไม่ต้องมี OpenAI credential / network ACL / AI Profile / `DBMS_CLOUD_AI` อีกต่อไป
 
-## Phase 4 — Chatbot module (Go backend)
+## Phase 3′ — Claude API setup
 
-- [ ] เพิ่ม domain `internal/domain/chatbot` (เช่น `ChatQuestion`, `ChatAnswer`)
-- [ ] เพิ่ม port `internal/ports/chatbot` (interface สำหรับเรียก Select AI)
-- [ ] เพิ่ม adapter `internal/adapters/oracle/chatbot` ที่เปิด connection ผ่าน godror และรัน `SELECT AI narrate ...` กับ AI Profile จาก Phase 3
-- [ ] เพิ่ม use case `internal/application/chatbot/ask.go`
-- [ ] เพิ่ม HTTP handler + route `POST /chat` ใน `internal/adapters/http/chatbot/` ผูก JWT auth เดียวกับ route อื่น (พิจารณาจำกัด role ที่เข้าถึงได้ตาม RBAC เดิม)
-- [ ] เพิ่ม Swagger annotation (`@Summary`/`@Router`) แล้วรัน `make swagger` ให้ endpoint ใหม่ขึ้นใน `docs/`
-- [ ] เพิ่ม `ORACLE_DSN`/wallet path ใน `cmd/api/main.go` wiring (สร้าง oracle client ตอน startup, graceful fail ถ้าต่อไม่ได้แทนที่จะ crash ทั้ง API เพราะ chatbot เป็น POC feature เสริม)
+- [x] เพิ่ม `github.com/anthropics/anthropic-sdk-go` ใน `go.mod` (v1.69.0)
+- [ ] สร้าง read-only DB user `CHATBOT_RO` — `scripts/oracle/003_create_readonly_user.sql` (รันครั้งเดียวด้วย **ADMIN**): grant `SELECT` เฉพาะ 4 ตาราง + synonym ให้เรียกชื่อตารางไม่ต้อง prefix schema
+  - **รอ**: ต้องใช้ ADMIN password (ใส่ `ORACLE_ADMIN_DSN` ชั่วคราว). fallback: ใช้ `ORACLE_DSN` (CHATBOT_APP) ไปก่อน — Go guard + `SET TRANSACTION READ ONLY` ยังกันการเขียนได้
+- [ ] ตั้ง env: `ANTHROPIC_API_KEY` (หรือ `ant auth login`), `CHATBOT_MODEL=claude-haiku-4-5-20251001`, `ORACLE_CHATBOT_DSN=CHATBOT_RO/"..."@limsdb_high`
+- [ ] ทดสอบ `POST /chat` กับ scenario Phase 2 — ปรับ `systemPrompt` ใน `internal/adapters/anthropic/chatbot/assistant.go` (มี schema + Thai comments ฝังอยู่) ถ้าคำตอบยังไม่แม่น
+
+## Phase 4 — Chatbot module (Go backend) — done
+
+- [x] domain `internal/domain/chatbot` (`Question`, `Answer{Text, SQLQueries, Rows, ElapsedMS}`)
+- [x] ports `internal/ports/chatbot` — `SQLRunner` (รัน SELECT read-only) + `Assistant` (tool-use loop)
+- [x] adapter `internal/adapters/oracle/chatbot/runner.go` — `validateSelect` guard (single SELECT/WITH, block DML/DDL/comment) + `SET TRANSACTION READ ONLY` + timeout 15s + cap 200 แถว
+- [x] adapter `internal/adapters/anthropic/chatbot/assistant.go` — manual tool-use loop (`client.Messages.New`), tool `run_sql`, สูงสุด 5 turn, parse tool input ด้วย `json.Unmarshal`
+- [x] use case `internal/application/chatbot/ask.go` — validate คำถาม (ไม่ว่าง, ≤ 500 ตัวอักษร)
+- [x] HTTP handler + route `POST /chat` ใน `internal/adapters/http/chatbot/` — `middleware.Auth` + `RequirePermission(rbac.ModuleChatbot, rbac.ActionView)`
+- [x] RBAC: `ModuleChatbot` + migration `000037_add_chatbot_module_permissions` (grant `chatbot:view` ให้ทุก role)
+- [x] Swagger annotation + regen `docs/` (endpoint `/chat` ขึ้นแล้ว)
+- [x] wiring `cmd/api/{main,routes}.go` — สร้าง `chatbotDB` (RO DSN) ตอน startup, graceful fail, mount `/chat` เฉพาะเมื่อต่อ ADB สำเร็จ
+- [x] config `internal/config` — `AnthropicAPIKey`, `ChatbotModel`, `OracleChatbotDSN`
+- [x] unit test — `ask_test.go` (validate), `runner_test.go` (`validateSelect`)
+- [x] prompt caching — `cache_control` breakpoint บน system block (schema+rules+tool byte-identical ทุก request). **หมายเหตุ**: system prompt ปัจจุบัน ~1.6k tokens ต่ำกว่า minimum cacheable prefix ของ Haiku 4.5 (4096 tokens) → marker เป็น no-op จนกว่าจะขยาย prompt เกิน 4k (เช่นเพิ่ม few-shot examples) หรือเปลี่ยนไปใช้ Opus/Sonnet (512/1024). `Answer.CacheReadTokens/CacheWriteTokens` ใช้ verify
+
+### สถานะทดสอบจริง (2026-09-02, `cmd/chatbot-ask`)
+
+รัน scenario 1/3/4 + negative test ผ่านครบ (Claude API + Oracle จริง). latency ~5–8s/คำถาม (1 query). scenario 3/4 ตรงกับ demo doc เป๊ะ. scenario 1 คืน 7 แถว (seed มี pending มากกว่า snapshot เดิม + junk rows `SMP-TEST-*` จาก `cmd/oracle-insert-test` — ควร re-run `002_seed.sql` ล้างก่อน demo). ยังต่อด้วย `CHATBOT_APP` (Go guard + read-only txn กันเขียนได้ — negative test ยืนยัน) — ควรสร้าง `CHATBOT_RO` ด้วย `003_*.sql`
 
 ## Phase 5 — Demo verification
 
