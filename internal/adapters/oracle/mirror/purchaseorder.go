@@ -25,7 +25,7 @@ func (m *Mirror) UpsertPurchaseOrder(ctx context.Context, po dpo.PurchaseOrder) 
 		sql.Named("id", po.ID),
 		sql.Named("item", po.ItemID),
 		sql.Named("qty", po.Quantity),
-		sql.Named("vendor", po.Vendor),
+		sql.Named("vendor", clip(po.Vendor, 200)),
 		sql.Named("odate", po.OrderDate),
 		sql.Named("status", string(po.Status)),
 	)

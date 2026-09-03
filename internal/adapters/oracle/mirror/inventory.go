@@ -25,13 +25,13 @@ VALUES (:id, :name, :cat, :qty, :unit, :minq, :maxq, :vendor)
 func (m *Mirror) UpsertInventoryItem(ctx context.Context, i dinventory.InventoryItem) error {
 	_, err := m.db.ExecContext(ctx, mergeInventoryItemSQL,
 		sql.Named("id", i.ID),
-		sql.Named("name", i.Name),
-		sql.Named("cat", nullText(i.Category)),
+		sql.Named("name", clip(i.Name, 200)),
+		sql.Named("cat", clipNull(i.Category, 100)),
 		sql.Named("qty", i.Quantity),
-		sql.Named("unit", i.Unit),
+		sql.Named("unit", clip(i.Unit, 50)),
 		sql.Named("minq", i.Min),
 		sql.Named("maxq", i.Max),
-		sql.Named("vendor", nullText(i.DefaultVendor)),
+		sql.Named("vendor", clipNull(i.DefaultVendor, 200)),
 	)
 	return err
 }

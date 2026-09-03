@@ -43,10 +43,10 @@ VALUES (:id, :name, :stype, :cust, :loc, :status, :recv)
 func (m *Mirror) UpsertSample(ctx context.Context, s dsample.Sample, custodian, location string) error {
 	_, err := m.db.ExecContext(ctx, mergeSampleSQL,
 		sql.Named("id", s.ID),
-		sql.Named("name", s.Name),
+		sql.Named("name", clip(s.Name, 200)),
 		sql.Named("stype", string(s.Type)),
-		sql.Named("cust", custodian),
-		sql.Named("loc", location),
+		sql.Named("cust", clip(custodian, 100)),
+		sql.Named("loc", clip(location, 100)),
 		sql.Named("status", string(s.Status)),
 		sql.Named("recv", s.ReceivedAt),
 	)

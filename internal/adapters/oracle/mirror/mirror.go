@@ -49,6 +49,30 @@ func run(ctx context.Context, entity, id string, fn func(context.Context) error)
 	}
 }
 
+// clip trims s to at most maxBytes bytes without splitting a UTF-8 rune. The
+// Oracle mirror columns use byte-length limits (VARCHAR2(n)); real Thai data
+// is multi-byte, so a value that fits in Postgres can overflow the mirror and
+// abort a backfill (ORA-12899). The mirror is a lossy projection anyway, so
+// silently shortening an over-long label is acceptable.
+func clip(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	b := []byte(s)[:maxBytes]
+	for len(b) > 0 && b[len(b)-1]&0xC0 == 0x80 {
+		b = b[:len(b)-1]
+	}
+	if len(b) > 0 && b[len(b)-1]&0x80 != 0 {
+		b = b[:len(b)-1] // drop the leading byte of a now-truncated rune
+	}
+	return string(b)
+}
+
+// clipNull is clip followed by nullText.
+func clipNull(s string, maxBytes int) any {
+	return nullText(clip(s, maxBytes))
+}
+
 // nullText maps an empty optional string to a SQL NULL so it does not trip a
 // CHECK constraint (e.g. test_results.flag) or store a meaningless "".
 func nullText(s string) any {

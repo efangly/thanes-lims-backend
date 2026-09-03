@@ -58,7 +58,7 @@ CREATE TABLE inventory_items (
     name           VARCHAR2(200) NOT NULL,
     category       VARCHAR2(100),
     quantity       NUMBER        NOT NULL,
-    unit           VARCHAR2(20)  NOT NULL,
+    unit           VARCHAR2(50 CHAR) NOT NULL,
     min_qty        NUMBER        NOT NULL,
     max_qty        NUMBER        NOT NULL,
     default_vendor VARCHAR2(200)

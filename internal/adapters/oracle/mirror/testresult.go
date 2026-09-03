@@ -25,11 +25,11 @@ func (m *Mirror) UpsertTestResult(ctx context.Context, t dtestresult.TestResult)
 	_, err := m.db.ExecContext(ctx, mergeTestResultSQL,
 		sql.Named("id", t.ID),
 		sql.Named("sid", t.SampleID),
-		sql.Named("tname", t.TestName),
-		sql.Named("analyst", t.Analyst),
-		sql.Named("result", nullText(t.Result)),
+		sql.Named("tname", clip(t.TestName, 200)),
+		sql.Named("analyst", clip(t.Analyst, 100)),
+		sql.Named("result", clipNull(t.Result, 200)),
 		sql.Named("flag", nullText(string(t.Flag))),
-		sql.Named("refrange", nullText(t.RefRange)),
+		sql.Named("refrange", clipNull(t.RefRange, 100)),
 		sql.Named("status", string(t.Status)),
 	)
 	return err
