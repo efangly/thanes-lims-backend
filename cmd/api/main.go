@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
-	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
@@ -86,12 +86,12 @@ func main() {
 	auditRepo := postgresaudit.New(gdb)
 	logAction := applicationaudit.NewLogActionUseCase(auditRepo)
 
-	fileStorage, err := minio.New(cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseSSL)
+	fileStorage, err := objectstorage.New(cfg.StorageEndpoint, cfg.StorageRegion, cfg.StorageAccessKey, cfg.StorageSecretKey, cfg.StorageBucket, cfg.StorageUseSSL)
 	if err != nil {
-		log.Fatalf("minio: %v", err)
+		log.Fatalf("objectstorage: %v", err)
 	}
 	if err := fileStorage.EnsureBucket(context.Background()); err != nil {
-		log.Fatalf("minio: ensure bucket: %v", err)
+		log.Fatalf("objectstorage: ensure bucket: %v", err)
 	}
 
 	redisCache, err := redisadapter.New(context.Background(), cfg.RedisURL)

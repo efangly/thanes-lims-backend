@@ -25,7 +25,7 @@ import (
 	httpuser "github.com/efangly/thanes-lims-backend/internal/adapters/http/user"
 	httpvendor "github.com/efangly/thanes-lims-backend/internal/adapters/http/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
-	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
 	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
@@ -71,7 +71,7 @@ import (
 // testresult, ... per the implementation plan). It also returns the
 // auto-reorder job so main can run it on a schedule alongside the HTTP
 // server, since it's composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *minio.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
 	// oracleMirror is non-nil only when the writable ADB connection is up; the
 	// wrap* helpers below then make every Postgres write also MERGE into the
 	// chatbot POC's Oracle mirror (best-effort - see internal/adapters/oracle/mirror).

@@ -1,7 +1,8 @@
-package minio
+package objectstorage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -14,10 +15,16 @@ type Adapter struct {
 	bucket string
 }
 
-func New(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*Adapter, error) {
+// New builds an S3-compatible client. Against OCI Object Storage the endpoint is
+// <namespace>.compat.objectstorage.<region>.oraclecloud.com and region must be
+// the real OCI region id (e.g. ap-samutprakan-1) - OCI signs SigV4 with it and
+// only serves path-style requests.
+func New(endpoint, region, accessKey, secretKey, bucket string, useSSL bool) (*Adapter, error) {
 	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
-		Secure: useSSL,
+		Creds:        credentials.NewStaticV4(accessKey, secretKey, ""),
+		Secure:       useSSL,
+		Region:       region,
+		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
 		return nil, err
@@ -25,15 +32,16 @@ func New(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*Adapter, 
 	return &Adapter{client: client, bucket: bucket}, nil
 }
 
-// EnsureBucket creates the configured bucket if it doesn't already exist.
-// Call once at API boot.
+// EnsureBucket verifies the configured bucket exists. OCI Object Storage's
+// S3-compatible API does not support bucket creation, so provision the bucket
+// via oci-cli first. Call once at API boot.
 func (a *Adapter) EnsureBucket(ctx context.Context) error {
 	exists, err := a.client.BucketExists(ctx, a.bucket)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return a.client.MakeBucket(ctx, a.bucket, minio.MakeBucketOptions{})
+		return fmt.Errorf("bucket %q not found (create it via oci-cli first)", a.bucket)
 	}
 	return nil
 }

@@ -7,8 +7,8 @@ import (
 )
 
 // FileStorage is the port for binary object storage (documents, reports).
-// Implemented against MinIO/S3, swappable to any S3-compatible provider
-// without touching domain/application code.
+// Implemented against OCI Object Storage via its S3-compatible API, swappable
+// to any S3-compatible provider without touching domain/application code.
 type FileStorage interface {
 	Upload(ctx context.Context, key string, reader io.Reader, size int64, contentType string) error
 	Download(ctx context.Context, key string) (io.ReadCloser, error)

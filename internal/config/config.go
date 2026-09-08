@@ -42,11 +42,16 @@ type Config struct {
 	// request comes through a trusted proxy (e.g. "X-Forwarded-For").
 	ProxyHeader string `env:"PROXY_HEADER"`
 
-	MinioEndpoint  string `env:"MINIO_ENDPOINT,required"`
-	MinioAccessKey string `env:"MINIO_ACCESS_KEY,required"`
-	MinioSecretKey string `env:"MINIO_SECRET_KEY,required"`
-	MinioBucket    string `env:"MINIO_BUCKET,required"`
-	MinioUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"true"`
+	// Object storage (documents) - S3-compatible. Against OCI Object Storage:
+	// STORAGE_ENDPOINT = <namespace>.compat.objectstorage.<region>.oraclecloud.com,
+	// STORAGE_REGION   = the OCI region id (e.g. ap-samutprakan-1), required for
+	// the SigV4 signature. Credentials are an IAM user's Customer Secret Key.
+	StorageEndpoint  string `env:"STORAGE_ENDPOINT,required"`
+	StorageRegion    string `env:"STORAGE_REGION,required"`
+	StorageAccessKey string `env:"STORAGE_ACCESS_KEY,required"`
+	StorageSecretKey string `env:"STORAGE_SECRET_KEY,required"`
+	StorageBucket    string `env:"STORAGE_BUCKET,required"`
+	StorageUseSSL    bool   `env:"STORAGE_USE_SSL" envDefault:"true"`
 
 	// RedisURL backs the read-through Cache (see
 	// docs/adr/0005-redis-cache-for-refresh-tokens-and-location-full-path.md).

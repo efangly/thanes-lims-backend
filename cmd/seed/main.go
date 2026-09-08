@@ -9,7 +9,7 @@ import (
 	"time"
 
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
-	"github.com/efangly/thanes-lims-backend/internal/adapters/minio"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
 	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
@@ -62,13 +62,13 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 
-	fileStorage, err := minio.New(cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseSSL)
+	fileStorage, err := objectstorage.New(cfg.StorageEndpoint, cfg.StorageRegion, cfg.StorageAccessKey, cfg.StorageSecretKey, cfg.StorageBucket, cfg.StorageUseSSL)
 	if err != nil {
-		log.Fatalf("minio: %v", err)
+		log.Fatalf("objectstorage: %v", err)
 	}
 	ctx := context.Background()
 	if err := fileStorage.EnsureBucket(ctx); err != nil {
-		log.Fatalf("minio: ensure bucket: %v", err)
+		log.Fatalf("objectstorage: ensure bucket: %v", err)
 	}
 
 	userRepo := postgresuser.New(gdb)
@@ -625,7 +625,7 @@ func seedPurchaseOrders(ctx context.Context, purchaseOrders *postgrespurchaseord
 	log.Printf("seed: created %d purchase orders from low-stock items", created)
 }
 
-func seedDocuments(ctx context.Context, documents *postgresdocument.Repository, history *postgresdocument.HistoryRepository, storage *minio.Adapter, idgen *postgresidgen.Adapter, users map[string]domainuser.User) {
+func seedDocuments(ctx context.Context, documents *postgresdocument.Repository, history *postgresdocument.HistoryRepository, storage *objectstorage.Adapter, idgen *postgresidgen.Adapter, users map[string]domainuser.User) {
 	upload := applicationdocument.NewUploadDocumentUseCase(documents, history, storage, idgen, nil, nil)
 
 	specs := []struct {
