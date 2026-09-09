@@ -15,6 +15,9 @@ type Handler struct {
 	upload      *applicationdocument.UploadDocumentUseCase
 	newVersion  *applicationdocument.CreateNewVersionUseCase
 	setLock     *applicationdocument.SetLockUseCase
+	update      *applicationdocument.UpdateDocumentUseCase
+	deleteDoc   *applicationdocument.DeleteDocumentUseCase
+	restore     *applicationdocument.RestoreDocumentUseCase
 	list        *applicationdocument.ListDocumentsUseCase
 	get         *applicationdocument.GetDocumentUseCase
 	downloadURL *applicationdocument.GetDownloadURLUseCase
@@ -25,12 +28,15 @@ func NewHandler(
 	upload *applicationdocument.UploadDocumentUseCase,
 	newVersion *applicationdocument.CreateNewVersionUseCase,
 	setLock *applicationdocument.SetLockUseCase,
+	update *applicationdocument.UpdateDocumentUseCase,
+	deleteDoc *applicationdocument.DeleteDocumentUseCase,
+	restore *applicationdocument.RestoreDocumentUseCase,
 	list *applicationdocument.ListDocumentsUseCase,
 	get *applicationdocument.GetDocumentUseCase,
 	downloadURL *applicationdocument.GetDownloadURLUseCase,
 	history *applicationdocument.ListHistoryUseCase,
 ) *Handler {
-	return &Handler{upload: upload, newVersion: newVersion, setLock: setLock, list: list, get: get, downloadURL: downloadURL, history: history}
+	return &Handler{upload: upload, newVersion: newVersion, setLock: setLock, update: update, deleteDoc: deleteDoc, restore: restore, list: list, get: get, downloadURL: downloadURL, history: history}
 }
 
 // Upload godoc
@@ -270,5 +276,93 @@ func (h *Handler) SetLock(c fiber.Ctx) error {
 		return err
 	}
 	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, d))
+	return response.OK(c, toResponse(d))
+}
+
+// Update godoc
+//
+//	@Summary		แก้ไขข้อมูลเอกสาร
+//	@Description	แก้ไข metadata (ชื่อ/ประเภท/ระดับการเข้าถึง/การผูกอุปกรณ์หรือรายการสอบเทียบ) ส่งเฉพาะฟิลด์ที่ต้องการแก้ เอกสารที่ถูกล็อคแก้ไม่ได้
+//	@Tags			documents
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Document ID"
+//	@Param			request	body		UpdateDocumentRequest	true	"ฟิลด์ที่ต้องการแก้ไข"
+//	@Success		200		{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/documents/{id} [patch]
+func (h *Handler) Update(c fiber.Ctx) error {
+	var req UpdateDocumentRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	d, err := h.update.Execute(c.Context(), applicationdocument.UpdateDocumentInput{
+		DocumentID:         id,
+		Name:               req.Name,
+		Type:               req.Type,
+		AccessLevel:        req.AccessLevel,
+		EquipmentID:        req.EquipmentID,
+		CalibrationEventID: req.CalibrationEventID,
+		ChangeNote:         req.ChangeNote,
+		UpdatedBy:          fiber.Locals[string](c, middleware.LocalsName),
+	})
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(before, d))
+	return response.OK(c, toResponse(d))
+}
+
+// Delete godoc
+//
+//	@Summary		ลบเอกสาร (soft delete)
+//	@Description	ทำ soft delete (Retired) เก็บไฟล์และประวัติไว้ กู้คืนได้ผ่าน /documents/{id}/restore เอกสารที่ถูกล็อคลบไม่ได้
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Document ID"
+//	@Success		204	"no content"
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		403	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/documents/{id} [delete]
+func (h *Handler) Delete(c fiber.Ctx) error {
+	id := c.Params("id")
+	if err := h.deleteDoc.Execute(c.Context(), id, fiber.Locals[string](c, middleware.LocalsName)); err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.DeletedMarker())
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// Restore godoc
+//
+//	@Summary		กู้คืนเอกสารที่ถูกลบ
+//	@Tags			documents
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Document ID"
+//	@Success		200	{object}	response.Envelope{data=DocumentResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Failure		409	{object}	response.Envelope
+//	@Router			/documents/{id}/restore [post]
+func (h *Handler) Restore(c fiber.Ctx) error {
+	d, err := h.restore.Execute(c.Context(), c.Params("id"), fiber.Locals[string](c, middleware.LocalsName))
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.Snapshot(d))
 	return response.OK(c, toResponse(d))
 }

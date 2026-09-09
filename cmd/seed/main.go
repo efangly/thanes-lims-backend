@@ -85,6 +85,11 @@ func main() {
 		if err := wipe(gdb); err != nil {
 			log.Fatalf("wipe: %v", err)
 		}
+		n, err := fileStorage.DeletePrefix(ctx, "docs/")
+		if err != nil {
+			log.Fatalf("wipe object storage: %v", err)
+		}
+		log.Printf("seed: wiped %d document objects from object storage", n)
 	}
 
 	idgen := postgresidgen.New(gdb)

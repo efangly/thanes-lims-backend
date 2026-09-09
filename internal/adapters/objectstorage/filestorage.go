@@ -66,3 +66,22 @@ func (a *Adapter) GetPresignedURL(ctx context.Context, key string, expiry time.D
 func (a *Adapter) Delete(ctx context.Context, key string) error {
 	return a.client.RemoveObject(ctx, a.bucket, key, minio.RemoveObjectOptions{})
 }
+
+// DeletePrefix removes every object whose key starts with prefix and
+// returns how many were deleted. Passing "" clears the whole bucket. Used
+// by the seeder's -force reset - not wired into any request path.
+func (a *Adapter) DeletePrefix(ctx context.Context, prefix string) (int, error) {
+	var keys []string
+	for obj := range a.client.ListObjects(ctx, a.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if obj.Err != nil {
+			return 0, obj.Err
+		}
+		keys = append(keys, obj.Key)
+	}
+	for _, k := range keys {
+		if err := a.client.RemoveObject(ctx, a.bucket, k, minio.RemoveObjectOptions{}); err != nil {
+			return 0, fmt.Errorf("remove %q: %w", k, err)
+		}
+	}
+	return len(keys), nil
+}

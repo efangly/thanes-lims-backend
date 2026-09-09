@@ -69,6 +69,50 @@ func (r *Repository) FindByID(ctx context.Context, id string) (document.Document
 	return toDomain(m), nil
 }
 
+// FindByIDIncludingDeleted bypasses GORM's soft-delete scope so the
+// restore flow can find a Retired Document.
+func (r *Repository) FindByIDIncludingDeleted(ctx context.Context, id string) (document.Document, error) {
+	var m Model
+	err := r.db.WithContext(ctx).Unscoped().First(&m, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return document.Document{}, shared.ErrNotFound
+	}
+	if err != nil {
+		return document.Document{}, err
+	}
+	return toDomain(m), nil
+}
+
+// Delete soft-deletes the Document - GORM stamps deleted_at because Model
+// carries gorm.DeletedAt.
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	res := r.db.WithContext(ctx).Where("id = ?", id).Delete(&Model{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return shared.ErrNotFound
+	}
+	return nil
+}
+
+// Restore clears deleted_at. It distinguishes "no such id" (ErrNotFound)
+// from "id exists but is still active" (ErrConflict).
+func (r *Repository) Restore(ctx context.Context, id string) error {
+	var m Model
+	err := r.db.WithContext(ctx).Unscoped().First(&m, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return shared.ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !m.DeletedAt.Valid {
+		return shared.ErrConflict
+	}
+	return r.db.WithContext(ctx).Unscoped().Model(&Model{}).Where("id = ?", id).Update("deleted_at", nil).Error
+}
+
 func (r *Repository) List(ctx context.Context) ([]document.Document, error) {
 	var models []Model
 	if err := r.db.WithContext(ctx).Order("id").Find(&models).Error; err != nil {

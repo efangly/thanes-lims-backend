@@ -35,6 +35,18 @@ func (m *mockDocRepo) Update(ctx context.Context, d document.Document) (document
 	args := m.Called(ctx, d)
 	return args.Get(0).(document.Document), args.Error(1)
 }
+func (m *mockDocRepo) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *mockDocRepo) Restore(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *mockDocRepo) FindByIDIncludingDeleted(ctx context.Context, id string) (document.Document, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(document.Document), args.Error(1)
+}
 
 type mockHistoryRepo struct{ mock.Mock }
 

@@ -54,3 +54,15 @@ func toHistoryResponse(h document.DocHistory) HistoryResponse {
 type LockRequest struct {
 	Locked bool `json:"locked"`
 }
+
+// UpdateDocumentRequest is a partial update: a nil field is left
+// unchanged. For the optional links, an explicit empty string / 0 clears
+// the link.
+type UpdateDocumentRequest struct {
+	Name               *string `json:"name"`
+	Type               *string `json:"type"`
+	AccessLevel        *string `json:"access_level"`
+	EquipmentID        *string `json:"equipment_id"`
+	CalibrationEventID *int64  `json:"calibration_event_id"`
+	ChangeNote         string  `json:"change_note"`
+}

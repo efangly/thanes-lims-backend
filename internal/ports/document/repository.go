@@ -17,6 +17,18 @@ type Repository interface {
 	// (Phase 6, e.g. calibration certificates).
 	ListByCalibrationEvent(ctx context.Context, calibrationEventID int64) ([]document.Document, error)
 	Update(ctx context.Context, d document.Document) (document.Document, error)
+	// Delete soft-deletes a Document (Retired, per ADR 0003): the row and
+	// its doc_history stay queryable, the file stays in object storage.
+	// Returns shared.ErrNotFound when no active Document has that id.
+	Delete(ctx context.Context, id string) error
+	// Restore clears deleted_at on a Retired Document. Returns
+	// shared.ErrNotFound when no such id exists at all, and
+	// shared.ErrConflict when the Document is not currently Retired.
+	Restore(ctx context.Context, id string) error
+	// FindByIDIncludingDeleted looks a Document up whether or not it is
+	// Retired - used by the restore flow. Returns shared.ErrNotFound when
+	// the id does not exist at all.
+	FindByIDIncludingDeleted(ctx context.Context, id string) (document.Document, error)
 }
 
 // EquipmentDirectory validates a Document's optional EquipmentID link on

@@ -761,6 +761,133 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ทำ soft delete (Retired) เก็บไฟล์และประวัติไว้ กู้คืนได้ผ่าน /documents/{id}/restore เอกสารที่ถูกล็อคลบไม่ได้",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "ลบเอกสาร (soft delete)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "แก้ไข metadata (ชื่อ/ประเภท/ระดับการเข้าถึง/การผูกอุปกรณ์หรือรายการสอบเทียบ) ส่งเฉพาะฟิลด์ที่ต้องการแก้ เอกสารที่ถูกล็อคแก้ไม่ได้",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "แก้ไขข้อมูลเอกสาร",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ฟิลด์ที่ต้องการแก้ไข",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_document.UpdateDocumentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_document.DocumentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
             }
         },
         "/documents/{id}/download": {
@@ -943,6 +1070,69 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/documents/{id}/restore": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "กู้คืนเอกสารที่ถูกลบ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_document.DocumentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
                         }
@@ -4878,6 +5068,10 @@ const docTemplate = `{
                 "equipment_id": {
                     "type": "string"
                 },
+                "filename": {
+                    "description": "Filename is the stored file's base name with extension, derived from\nStorageKey. The frontend uses the extension to decide whether a file\nkind can be previewed inline (ADR-0013).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -4920,6 +5114,29 @@ const docTemplate = `{
             "properties": {
                 "locked": {
                     "type": "boolean"
+                }
+            }
+        },
+        "internal_adapters_http_document.UpdateDocumentRequest": {
+            "type": "object",
+            "properties": {
+                "access_level": {
+                    "type": "string"
+                },
+                "calibration_event_id": {
+                    "type": "integer"
+                },
+                "change_note": {
+                    "type": "string"
+                },
+                "equipment_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

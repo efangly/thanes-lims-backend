@@ -75,6 +75,12 @@ definitions:
         type: string
       equipment_id:
         type: string
+      filename:
+        description: |-
+          Filename is the stored file's base name with extension, derived from
+          StorageKey. The frontend uses the extension to decide whether a file
+          kind can be previewed inline (ADR-0013).
+        type: string
       id:
         type: string
       issued_at:
@@ -103,6 +109,21 @@ definitions:
     properties:
       locked:
         type: boolean
+    type: object
+  internal_adapters_http_document.UpdateDocumentRequest:
+    properties:
+      access_level:
+        type: string
+      calibration_event_id:
+        type: integer
+      change_note:
+        type: string
+      equipment_id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
     type: object
   internal_adapters_http_environment.AlertResponse:
     properties:
@@ -1284,6 +1305,37 @@ paths:
       tags:
       - documents
   /documents/{id}:
+    delete:
+      description: ทำ soft delete (Retired) เก็บไฟล์และประวัติไว้ กู้คืนได้ผ่าน /documents/{id}/restore
+        เอกสารที่ถูกล็อคลบไม่ได้
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ลบเอกสาร (soft delete)
+      tags:
+      - documents
     get:
       parameters:
       - description: Document ID
@@ -1314,6 +1366,56 @@ paths:
       security:
       - BearerAuth: []
       summary: ดึงข้อมูลเอกสารตาม ID
+      tags:
+      - documents
+    patch:
+      consumes:
+      - application/json
+      description: แก้ไข metadata (ชื่อ/ประเภท/ระดับการเข้าถึง/การผูกอุปกรณ์หรือรายการสอบเทียบ)
+        ส่งเฉพาะฟิลด์ที่ต้องการแก้ เอกสารที่ถูกล็อคแก้ไม่ได้
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ฟิลด์ที่ต้องการแก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_document.UpdateDocumentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขข้อมูลเอกสาร
       tags:
       - documents
   /documents/{id}/download:
@@ -1427,6 +1529,43 @@ paths:
       security:
       - BearerAuth: []
       summary: ล็อค/ปลดล็อคเอกสาร
+      tags:
+      - documents
+  /documents/{id}/restore:
+    post:
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_document.DocumentResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: กู้คืนเอกสารที่ถูกลบ
       tags:
       - documents
   /documents/{id}/versions:
