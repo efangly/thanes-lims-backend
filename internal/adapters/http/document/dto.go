@@ -1,22 +1,27 @@
 package document
 
 import (
+	"path"
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/document"
 )
 
 type DocumentResponse struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	Type               string    `json:"type"`
-	Version            string    `json:"version"`
-	CreatedBy          string    `json:"created_by"`
-	IssuedAt           time.Time `json:"issued_at"`
-	AccessLevel        string    `json:"access_level"`
-	Locked             bool      `json:"locked"`
-	EquipmentID        *string   `json:"equipment_id"`
-	CalibrationEventID *int64    `json:"calibration_event_id"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	Version     string    `json:"version"`
+	CreatedBy   string    `json:"created_by"`
+	IssuedAt    time.Time `json:"issued_at"`
+	AccessLevel string    `json:"access_level"`
+	Locked      bool      `json:"locked"`
+	// Filename is the stored file's base name with extension, derived from
+	// StorageKey. The frontend uses the extension to decide whether a file
+	// kind can be previewed inline (ADR-0013).
+	Filename           string  `json:"filename"`
+	EquipmentID        *string `json:"equipment_id"`
+	CalibrationEventID *int64  `json:"calibration_event_id"`
 }
 
 func toResponse(d document.Document) DocumentResponse {
@@ -29,6 +34,7 @@ func toResponse(d document.Document) DocumentResponse {
 		IssuedAt:           d.IssuedAt,
 		AccessLevel:        d.AccessLevel,
 		Locked:             d.Locked,
+		Filename:           path.Base(d.StorageKey),
 		EquipmentID:        d.EquipmentID,
 		CalibrationEventID: d.CalibrationEventID,
 	}
