@@ -802,6 +802,17 @@ definitions:
       access_token:
         type: string
     type: object
+  internal_adapters_http_user.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
   internal_adapters_http_user.CreateUserRequest:
     properties:
       email:
@@ -836,12 +847,27 @@ definitions:
     required:
     - refresh_token
     type: object
+  internal_adapters_http_user.ResetPasswordRequest:
+    properties:
+      password:
+        minLength: 8
+        type: string
+    required:
+    - password
+    type: object
   internal_adapters_http_user.TokenPairResponse:
     properties:
       access_token:
         type: string
       refresh_token:
         type: string
+    type: object
+  internal_adapters_http_user.UpdateProfileRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
     type: object
   internal_adapters_http_user.UpdateUserRequest:
     properties:
@@ -864,6 +890,8 @@ definitions:
       name:
         type: string
       role:
+        type: string
+      status:
         type: string
       updated_at:
         type: string
@@ -3784,6 +3812,39 @@ paths:
       tags:
       - users
   /users/{id}:
+    delete:
+      description: ลบถาวรแบบ soft-delete ถูกบล็อกถ้ายังเป็นผู้ดูแล (Custodian) ของตัวอย่าง/สินค้าคงคลัง
+        (admin เท่านั้น)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ลบผู้ใช้ (Retire)
+      tags:
+      - users
     patch:
       consumes:
       - application/json
@@ -3833,6 +3894,109 @@ paths:
       summary: แก้ไขผู้ใช้
       tags:
       - users
+  /users/{id}/reactivate:
+    post:
+      description: ยกเลิกการระงับ ผู้ใช้เข้าสู่ระบบได้ตามปกติ (admin เท่านั้น)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เปิดใช้งานผู้ใช้อีกครั้ง
+      tags:
+      - users
+  /users/{id}/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: admin ตั้งรหัสผ่านใหม่ให้ผู้ใช้ ทุก session ของผู้ใช้นั้นถูกเพิกถอน
+        (admin เท่านั้น)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: รหัสผ่านใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รีเซ็ตรหัสผ่านผู้ใช้
+      tags:
+      - users
+  /users/{id}/suspend:
+    post:
+      description: ระงับการเข้าใช้งานชั่วคราวและเพิกถอนทุก session ของผู้ใช้นั้นทันที
+        (admin เท่านั้น)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ระงับผู้ใช้
+      tags:
+      - users
   /users/me:
     get:
       description: คืนข้อมูลผู้ใช้ที่ authenticate อยู่ (จาก access token)
@@ -3855,6 +4019,76 @@ paths:
       security:
       - BearerAuth: []
       summary: ข้อมูลผู้ใช้ปัจจุบัน
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      description: ผู้ใช้ที่ล็อกอินอยู่แก้ชื่อของตัวเอง (ไม่ต้องมีสิทธิ์ user:edit)
+      parameters:
+      - description: ชื่อใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขโปรไฟล์ตัวเอง
+      tags:
+      - users
+  /users/me/password:
+    post:
+      consumes:
+      - application/json
+      description: ต้องยืนยันรหัสผ่านปัจจุบัน session อื่นทั้งหมดถูกเพิกถอน session
+        ปัจจุบันได้ token ชุดใหม่
+      parameters:
+      - description: รหัสผ่านปัจจุบันและใหม่
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_user.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_user.AccessTokenResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เปลี่ยนรหัสผ่านตัวเอง
       tags:
       - users
 securityDefinitions:
