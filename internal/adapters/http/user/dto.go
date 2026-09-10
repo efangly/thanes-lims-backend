@@ -46,21 +46,44 @@ type UpdateUserRequest struct {
 	Role string `json:"role" validate:"required"`
 }
 
+// ResetPasswordRequest is the admin-set password body for
+// POST /users/{id}/reset-password.
+type ResetPasswordRequest struct {
+	Password string `json:"password" validate:"required,min=8"`
+}
+
+// UpdateProfileRequest is the self-service body for PATCH /users/me.
+type UpdateProfileRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
+// ChangePasswordRequest is the self-service body for POST /users/me/password.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
+}
+
 type UserResponse struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	Role      string    `json:"role"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func toUserResponse(u domainuser.User) UserResponse {
+	status := u.Status
+	if status == "" {
+		status = domainuser.StatusActive
+	}
 	return UserResponse{
 		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,
 		Role:      string(u.Role),
+		Status:    string(status),
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}

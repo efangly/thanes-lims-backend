@@ -170,15 +170,19 @@ func seedUsers(ctx context.Context, users *postgresuser.Repository) map[string]d
 	create := applicationuser.NewCreateUserUseCase(users)
 
 	specs := []struct {
-		key   string
-		name  string
-		email string
-		role  domainuser.Role
+		key       string
+		name      string
+		email     string
+		role      domainuser.Role
+		suspended bool
 	}{
-		{"admin", "ธเนศ สุขใจ", "admin@thanes-lims.demo", domainuser.RoleAdmin},
-		{"qa", "พิมพ์ชนก วารี", "qa@thanes-lims.demo", domainuser.RoleQA},
-		{"scientist", "สมชาย เข็มทอง", "scientist@thanes-lims.demo", domainuser.RoleScientist},
-		{"general", "วิภา แสงจันทร์", "general@thanes-lims.demo", domainuser.RoleGeneral},
+		{"admin", "ธเนศ สุขใจ", "admin@thanes-lims.demo", domainuser.RoleAdmin, false},
+		{"qa", "พิมพ์ชนก วารี", "qa@thanes-lims.demo", domainuser.RoleQA, false},
+		{"scientist", "สมชาย เข็มทอง", "scientist@thanes-lims.demo", domainuser.RoleScientist, false},
+		{"general", "วิภา แสงจันทร์", "general@thanes-lims.demo", domainuser.RoleGeneral, false},
+		// A suspended User so the /users admin screen has a non-active row to
+		// render (ADR 0010). Cannot log in.
+		{"suspended", "ก้องภพ ไพศาล", "suspended@thanes-lims.demo", domainuser.RoleScientist, true},
 	}
 
 	out := make(map[string]domainuser.User, len(specs))
@@ -188,6 +192,12 @@ func seedUsers(ctx context.Context, users *postgresuser.Repository) map[string]d
 		})
 		if err != nil {
 			log.Fatalf("seed user %s: %v", s.email, err)
+		}
+		if s.suspended {
+			u.Status = domainuser.StatusSuspended
+			if u, err = users.Update(ctx, u); err != nil {
+				log.Fatalf("seed user %s (suspend): %v", s.email, err)
+			}
 		}
 		out[s.key] = u
 	}

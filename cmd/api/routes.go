@@ -101,6 +101,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	userRepo := postgresuser.New(gdb)
 	refreshRepo := cacheduser.NewCachedRefreshTokenRepository(postgresuser.NewRefreshTokenRepository(gdb), redisCache)
 	rbacRepo := cachedrbac.NewCachedRepository(postgresrbac.New(gdb), redisCache)
+	custodianChecker := postgresuser.NewCustodianChecker(gdb)
 
 	userHandler := httpuser.NewHandler(
 		applicationuser.NewLoginUseCase(userRepo, refreshRepo, tokens, rbacRepo),
@@ -111,6 +112,12 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 		applicationuser.NewListUsersUseCase(userRepo),
 		applicationuser.NewGetUserUseCase(userRepo),
 		applicationuser.NewUpdateUserUseCase(userRepo, refreshRepo),
+		applicationuser.NewSuspendUserUseCase(userRepo, refreshRepo),
+		applicationuser.NewReactivateUserUseCase(userRepo),
+		applicationuser.NewRetireUserUseCase(userRepo, refreshRepo, custodianChecker),
+		applicationuser.NewResetPasswordUseCase(userRepo, refreshRepo),
+		applicationuser.NewUpdateProfileUseCase(userRepo),
+		applicationuser.NewChangePasswordUseCase(userRepo, refreshRepo, tokens, rbacRepo),
 		cfg.CookieSecure,
 	)
 	httpuser.RegisterRoutes(v1, userHandler, tokens)

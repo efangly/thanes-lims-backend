@@ -32,9 +32,24 @@ func (m *mockUserRepo) Update(ctx context.Context, u domainuser.User) (domainuse
 	args := m.Called(ctx, u)
 	return args.Get(0).(domainuser.User), args.Error(1)
 }
+func (m *mockUserRepo) Retire(ctx context.Context, id int64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
 func (m *mockUserRepo) CountByRole(ctx context.Context, role domainuser.Role) (int64, error) {
 	args := m.Called(ctx, role)
 	return args.Get(0).(int64), args.Error(1)
+}
+func (m *mockUserRepo) CountActiveByRole(ctx context.Context, role domainuser.Role) (int64, error) {
+	args := m.Called(ctx, role)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+type mockCustodianChecker struct{ mock.Mock }
+
+func (m *mockCustodianChecker) CountCustodianRefs(ctx context.Context, userID int64) (int64, int64, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(int64), args.Get(1).(int64), args.Error(2)
 }
 
 type mockRefreshRepo struct{ mock.Mock }

@@ -21,7 +21,7 @@
 **Barcode ID** — An optional code on a Sample (`BarcodeID`), either typed in by the user or system-generated (`SMP-BC-{seq5}`, its own `id_sequences` scope), separate from the Sample's `ID` (which stays the auto-generated sequence, e.g. `SMP-2569-00001`) and unique across non-Retired Samples when set. Used to scan-filter the registry (`GET /samples?barcode_id=` exact match) and to print a physical sticker (`GET /samples/{id}/sticker?template=&symbology=`). The backend renders the sticker itself (reusing `internal/adapters/pdf`) rather than handing the frontend a raw code to lay out — different use cases already print different physical label sizes, so the sticker renderer supports more than one label template/size (`cap` 9.5×6.4mm, `stem` 20.5×6.5mm, `small` 40×20mm, `medium` 60×30mm) and both `code128` and `qr` symbologies, not one fixed layout. If a Sample has no Barcode ID, its sticker encodes the Sample `ID` instead so it is always scannable.
 _Avoid_: Sample ID, code (Sample already has an `ID` — Barcode ID is an additional identifier for physical/scan use, not a replacement for it)
 
-**Custodian** — The User responsible for a Sample, piece of Equipment, or Inventory Item, referenced by FK to User (not free text). Chosen from a dropdown sourced from the User list.
+**Custodian** — The User responsible for a Sample or an Inventory Item, referenced by FK to User (not free text). Chosen from a dropdown sourced from the User list. (Equipment has no Custodian yet — the glossary once implied it did; the FK exists only on `samples.custodian_user_id` and `inventory_items.custodian_user_id`.)
 _Avoid_: Owner, responsible person, assignee
 
 ## Storage Location
@@ -112,8 +112,18 @@ _Avoid_: Diff, delta
 
 **Chain of Custody (CoC) Step** — A single handoff event in a Sample's custody history (who had it, when, what happened). Audited as its own Module, separate from the Sample it belongs to, because custody handoffs are themselves a compliance record independent of the Sample's other fields.
 
-**Retired** — A record that has been deleted by a User but is kept in storage (never physically removed) so its Audit Trail and any references to it stay intact. Applies to every audited Module. A Retired record does not appear in normal listings and does not block reuse of values that were unique to it (e.g. a Retired User's email can be reused by a new User).
+**Retired** — A record that has been deleted by a User but is kept in storage (never physically removed) so its Audit Trail and any references to it stay intact. Applies to every audited Module. A Retired record does not appear in normal listings and does not block reuse of values that were unique to it (e.g. a Retired User's email can be reused by a new User). Retiring a User is **blocked** while that User is still the Custodian of any non-Retired Sample or Inventory Item — the references must be reassigned first. Retiring is irreversible (unlike Suspended).
 _Avoid_: Soft-deleted, archived
+
+## User Lifecycle
+
+**User Status** — A reversible flag on a User, either `active` or `suspended`, separate from whether the User is Retired. Independent of Role: a suspended Admin is still an Admin, just unable to act. Every User is `active` on creation.
+_Avoid_: Enabled/disabled, deactivated (that reads as Retired)
+
+**Suspended** — A User whose Status is `suspended`: cannot Login, and every existing Session is revoked the moment they are suspended. Reversible by an Admin (`reactivate`) at any time — the User keeps their id, email, Role and history. Used for a temporary hold (extended leave, a disciplinary pause) where Retiring would be too final. Suspending is blocked for the last remaining active Admin and for acting on your own account.
+_Avoid_: Retired (permanent), Locked (that implies a failed-login lockout, which this is not)
+
+**Self-service** — The narrow set of changes a User may make to their own account without any Permission grant: their `Name`, and their password (which requires re-entering the current password). Everything else about a User — Role, email, Status — is Admin-only.
 
 ## Authentication & Sessions
 

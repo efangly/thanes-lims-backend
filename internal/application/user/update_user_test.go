@@ -15,9 +15,9 @@ func TestUpdateUserUseCase_LastAdminGuard(t *testing.T) {
 	users := new(mockUserRepo)
 	refresh := new(mockRefreshRepo)
 
-	existing := domainuser.User{ID: 1, Name: "Admin One", Role: domainuser.RoleAdmin}
+	existing := domainuser.User{ID: 1, Name: "Admin One", Role: domainuser.RoleAdmin, Status: domainuser.StatusActive}
 	users.On("FindByID", mock.Anything, int64(1)).Return(existing, nil)
-	users.On("CountByRole", mock.Anything, domainuser.RoleAdmin).Return(int64(1), nil)
+	users.On("CountActiveByRole", mock.Anything, domainuser.RoleAdmin).Return(int64(1), nil)
 
 	uc := applicationuser.NewUpdateUserUseCase(users, refresh)
 	_, err := uc.Execute(context.Background(), applicationuser.UpdateUserInput{

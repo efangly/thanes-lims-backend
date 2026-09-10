@@ -1,13 +1,14 @@
 # Seed Credentials
 
-Created by `go run ./cmd/seed` (or `make run-seed`). All 4 demo users share the same password.
+Created by `go run ./cmd/seed` (or `make run-seed`). All demo users share the same password.
 
-| Email | Role |
-|---|---|
-| admin@thanes-lims.demo | admin |
-| qa@thanes-lims.demo | qa |
-| scientist@thanes-lims.demo | scientist |
-| general@thanes-lims.demo | general |
+| Email | Role | Status |
+|---|---|---|
+| admin@thanes-lims.demo | admin | active |
+| qa@thanes-lims.demo | qa | active |
+| scientist@thanes-lims.demo | scientist | active |
+| general@thanes-lims.demo | general | active |
+| suspended@thanes-lims.demo | scientist | suspended (cannot log in — for the /users admin screen) |
 
 Password (all users): `Passw0rd!Demo`
 

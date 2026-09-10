@@ -42,6 +42,8 @@ func StatusAndCodeForError(err error) (int, string) {
 		return fiber.StatusBadRequest, "validation_failed"
 	case errors.Is(err, shared.ErrUnauthorized):
 		return fiber.StatusUnauthorized, "unauthorized"
+	case errors.Is(err, shared.ErrAccountSuspended):
+		return fiber.StatusForbidden, "account_suspended"
 	case errors.Is(err, shared.ErrForbidden):
 		return fiber.StatusForbidden, "forbidden"
 	default:

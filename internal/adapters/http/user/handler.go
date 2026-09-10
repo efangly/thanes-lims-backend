@@ -12,15 +12,21 @@ import (
 )
 
 type Handler struct {
-	login        *applicationuser.LoginUseCase
-	refresh      *applicationuser.RefreshUseCase
-	logout       *applicationuser.LogoutUseCase
-	logoutAll    *applicationuser.LogoutAllUseCase
-	create       *applicationuser.CreateUserUseCase
-	list         *applicationuser.ListUsersUseCase
-	get          *applicationuser.GetUserUseCase
-	update       *applicationuser.UpdateUserUseCase
-	cookieSecure bool
+	login          *applicationuser.LoginUseCase
+	refresh        *applicationuser.RefreshUseCase
+	logout         *applicationuser.LogoutUseCase
+	logoutAll      *applicationuser.LogoutAllUseCase
+	create         *applicationuser.CreateUserUseCase
+	list           *applicationuser.ListUsersUseCase
+	get            *applicationuser.GetUserUseCase
+	update         *applicationuser.UpdateUserUseCase
+	suspend        *applicationuser.SuspendUserUseCase
+	reactivate     *applicationuser.ReactivateUserUseCase
+	retire         *applicationuser.RetireUserUseCase
+	resetPassword  *applicationuser.ResetPasswordUseCase
+	updateProfile  *applicationuser.UpdateProfileUseCase
+	changePassword *applicationuser.ChangePasswordUseCase
+	cookieSecure   bool
 }
 
 func NewHandler(
@@ -32,18 +38,30 @@ func NewHandler(
 	list *applicationuser.ListUsersUseCase,
 	get *applicationuser.GetUserUseCase,
 	update *applicationuser.UpdateUserUseCase,
+	suspend *applicationuser.SuspendUserUseCase,
+	reactivate *applicationuser.ReactivateUserUseCase,
+	retire *applicationuser.RetireUserUseCase,
+	resetPassword *applicationuser.ResetPasswordUseCase,
+	updateProfile *applicationuser.UpdateProfileUseCase,
+	changePassword *applicationuser.ChangePasswordUseCase,
 	cookieSecure bool,
 ) *Handler {
 	return &Handler{
-		login:        login,
-		refresh:      refresh,
-		logout:       logout,
-		logoutAll:    logoutAll,
-		create:       create,
-		list:         list,
-		get:          get,
-		update:       update,
-		cookieSecure: cookieSecure,
+		login:          login,
+		refresh:        refresh,
+		logout:         logout,
+		logoutAll:      logoutAll,
+		create:         create,
+		list:           list,
+		get:            get,
+		update:         update,
+		suspend:        suspend,
+		reactivate:     reactivate,
+		retire:         retire,
+		resetPassword:  resetPassword,
+		updateProfile:  updateProfile,
+		changePassword: changePassword,
+		cookieSecure:   cookieSecure,
 	}
 }
 
@@ -315,4 +333,182 @@ func (h *Handler) UpdateUser(c fiber.Ctx) error {
 	}
 	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(toUserResponse(before), toUserResponse(u)))
 	return response.OK(c, toUserResponse(u))
+}
+
+// SuspendUser godoc
+//
+//	@Summary		ระงับผู้ใช้
+//	@Description	ระงับการเข้าใช้งานชั่วคราวและเพิกถอนทุก session ของผู้ใช้นั้นทันที (admin เท่านั้น)
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"User ID"
+//	@Success		200	{object}	response.Envelope{data=UserResponse}
+//	@Failure		400	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/users/{id}/suspend [post]
+func (h *Handler) SuspendUser(c fiber.Ctx) error {
+	id := fiber.Params[int64](c, "id")
+	actorID := fiber.Locals[int64](c, middleware.LocalsUserID)
+
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+	u, err := h.suspend.Execute(c.Context(), actorID, id)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(toUserResponse(before), toUserResponse(u)))
+	return response.OK(c, toUserResponse(u))
+}
+
+// ReactivateUser godoc
+//
+//	@Summary		เปิดใช้งานผู้ใช้อีกครั้ง
+//	@Description	ยกเลิกการระงับ ผู้ใช้เข้าสู่ระบบได้ตามปกติ (admin เท่านั้น)
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"User ID"
+//	@Success		200	{object}	response.Envelope{data=UserResponse}
+//	@Failure		404	{object}	response.Envelope
+//	@Router			/users/{id}/reactivate [post]
+func (h *Handler) ReactivateUser(c fiber.Ctx) error {
+	id := fiber.Params[int64](c, "id")
+
+	before, err := h.get.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+	u, err := h.reactivate.Execute(c.Context(), id)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(toUserResponse(before), toUserResponse(u)))
+	return response.OK(c, toUserResponse(u))
+}
+
+// RetireUser godoc
+//
+//	@Summary		ลบผู้ใช้ (Retire)
+//	@Description	ลบถาวรแบบ soft-delete ถูกบล็อกถ้ายังเป็นผู้ดูแล (Custodian) ของตัวอย่าง/สินค้าคงคลัง (admin เท่านั้น)
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"User ID"
+//	@Success		200	{object}	response.Envelope
+//	@Failure		400	{object}	response.Envelope
+//	@Failure		404	{object}	response.Envelope
+//	@Failure		409	{object}	response.Envelope
+//	@Router			/users/{id} [delete]
+func (h *Handler) RetireUser(c fiber.Ctx) error {
+	id := fiber.Params[int64](c, "id")
+	actorID := fiber.Locals[int64](c, middleware.LocalsUserID)
+
+	if err := h.retire.Execute(c.Context(), actorID, id); err != nil {
+		return err
+	}
+	return response.OK(c, fiber.Map{"retired": true})
+}
+
+// ResetPassword godoc
+//
+//	@Summary		รีเซ็ตรหัสผ่านผู้ใช้
+//	@Description	admin ตั้งรหัสผ่านใหม่ให้ผู้ใช้ ทุก session ของผู้ใช้นั้นถูกเพิกถอน (admin เท่านั้น)
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		int						true	"User ID"
+//	@Param			request	body		ResetPasswordRequest	true	"รหัสผ่านใหม่"
+//	@Success		200		{object}	response.Envelope
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/users/{id}/reset-password [post]
+func (h *Handler) ResetPassword(c fiber.Ctx) error {
+	id := fiber.Params[int64](c, "id")
+
+	var req ResetPasswordRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	if _, err := h.resetPassword.Execute(c.Context(), id, req.Password); err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, map[string]any{"action": "reset_password"})
+	return response.OK(c, fiber.Map{"password_reset": true})
+}
+
+// UpdateProfile godoc
+//
+//	@Summary		แก้ไขโปรไฟล์ตัวเอง
+//	@Description	ผู้ใช้ที่ล็อกอินอยู่แก้ชื่อของตัวเอง (ไม่ต้องมีสิทธิ์ user:edit)
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		UpdateProfileRequest	true	"ชื่อใหม่"
+//	@Success		200		{object}	response.Envelope{data=UserResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Router			/users/me [patch]
+func (h *Handler) UpdateProfile(c fiber.Ctx) error {
+	userID := fiber.Locals[int64](c, middleware.LocalsUserID)
+
+	var req UpdateProfileRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	before, err := h.get.Execute(c.Context(), userID)
+	if err != nil {
+		return err
+	}
+	u, err := h.updateProfile.Execute(c.Context(), userID, req.Name)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.LocalsAuditChangeSet, middleware.ChangeSet(toUserResponse(before), toUserResponse(u)))
+	return response.OK(c, toUserResponse(u))
+}
+
+// ChangePassword godoc
+//
+//	@Summary		เปลี่ยนรหัสผ่านตัวเอง
+//	@Description	ต้องยืนยันรหัสผ่านปัจจุบัน session อื่นทั้งหมดถูกเพิกถอน session ปัจจุบันได้ token ชุดใหม่
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		ChangePasswordRequest	true	"รหัสผ่านปัจจุบันและใหม่"
+//	@Success		200		{object}	response.Envelope{data=AccessTokenResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Router			/users/me/password [post]
+func (h *Handler) ChangePassword(c fiber.Ctx) error {
+	userID := fiber.Locals[int64](c, middleware.LocalsUserID)
+
+	var req ChangePasswordRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return err
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
+	}
+
+	pair, err := h.changePassword.Execute(c.Context(), userID, req.CurrentPassword, req.NewPassword,
+		string(c.Request().Header.UserAgent()), c.IP())
+	if err != nil {
+		return err
+	}
+	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
+	c.Locals(middleware.LocalsAuditChangeSet, map[string]any{"action": "change_password"})
+	return response.OK(c, AccessTokenResponse{AccessToken: pair.AccessToken})
 }

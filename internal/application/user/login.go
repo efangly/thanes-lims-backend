@@ -56,6 +56,13 @@ func (uc *LoginUseCase) Execute(ctx context.Context, email, password, userAgent,
 		return TokenPair{}, shared.ErrUnauthorized
 	}
 
+	// Suspended Users authenticate with correct credentials but are barred
+	// from getting a Session (ADR 0010). The distinct error is safe here -
+	// the password check already passed, so it leaks nothing.
+	if u.IsSuspended() {
+		return TokenPair{}, shared.ErrAccountSuspended
+	}
+
 	perms, err := uc.rbac.FindPermissionsByRoleName(ctx, u.Role.DisplayName())
 	if err != nil {
 		return TokenPair{}, err

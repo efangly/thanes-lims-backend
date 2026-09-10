@@ -19,10 +19,19 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	auth.Post("/logout", csrf, h.Logout)
 	auth.Post("/logout-all", authGuard, h.LogoutAll)
 
+	// Self-service (any authenticated User, own record only - see
+	// CONTEXT.md "Self-service"). Registered before the /users/:id routes so
+	// the literal "me" segment wins over the :id param.
 	r.Get("/users/me", authGuard, h.Me)
+	r.Patch("/users/me", authGuard, h.UpdateProfile)
+	r.Post("/users/me/password", authGuard, h.ChangePassword)
 
 	users := r.Group("/users", authGuard)
 	users.Get("/", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionView), h.ListUsers)
 	users.Post("/", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionCreate), h.CreateUser)
 	users.Patch("/:id", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionEdit), h.UpdateUser)
+	users.Delete("/:id", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionDelete), h.RetireUser)
+	users.Post("/:id/suspend", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionEdit), h.SuspendUser)
+	users.Post("/:id/reactivate", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionEdit), h.ReactivateUser)
+	users.Post("/:id/reset-password", middleware.RequirePermission(rbac.ModuleUser, rbac.ActionEdit), h.ResetPassword)
 }

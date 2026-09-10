@@ -37,15 +37,16 @@ func (uc *UpdateUserUseCase) Execute(ctx context.Context, in UpdateUserInput) (d
 
 	roleChanged := existing.Role != in.Role
 
-	// Last-admin guard: block a role change that would leave zero Users
-	// with the Admin role.
+	// Last-active-admin guard: block a role change that would leave zero
+	// active Users with the Admin role (suspended admins don't count - see
+	// ADR 0010).
 	if roleChanged && existing.Role == domainuser.RoleAdmin {
-		adminCount, err := uc.users.CountByRole(ctx, domainuser.RoleAdmin)
+		adminCount, err := uc.users.CountActiveByRole(ctx, domainuser.RoleAdmin)
 		if err != nil {
 			return domainuser.User{}, err
 		}
 		if adminCount <= 1 {
-			return domainuser.User{}, fmt.Errorf("%w: cannot change role - this is the last remaining admin", shared.ErrValidation)
+			return domainuser.User{}, fmt.Errorf("%w: cannot change role - this is the last remaining active admin", shared.ErrValidation)
 		}
 	}
 

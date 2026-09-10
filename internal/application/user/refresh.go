@@ -67,6 +67,14 @@ func (uc *RefreshUseCase) Execute(ctx context.Context, refreshTokenRaw, userAgen
 		return TokenPair{}, shared.ErrUnauthorized
 	}
 
+	// Fail closed if the User was suspended (or Retired - FindByID returns
+	// ErrNotFound above) since this Session was issued. Suspend already
+	// revokes every Session, so this only closes the race between that
+	// revocation and an in-flight refresh (ADR 0010).
+	if u.IsSuspended() {
+		return TokenPair{}, shared.ErrAccountSuspended
+	}
+
 	affected, err := uc.refresh.Revoke(ctx, stored.ID, stored.TokenHash)
 	if err != nil {
 		return TokenPair{}, err
