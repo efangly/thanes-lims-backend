@@ -105,6 +105,53 @@ func TestFetchSnapshot_HappyPath(t *testing.T) {
 	assert.Equal(t, "test-key", srv.gotAPIKey)
 }
 
+func TestFetchTimeseries_ReturnsEveryPoint(t *testing.T) {
+	srv := &fakeServer{snapshotResp: &pb.GetDeviceSnapshotResponse{
+		Device: &pb.DeviceMetadata{Serial: "SN-00042", Name: "Fridge"},
+		Timeseries: []*pb.TelemetryPoint{
+			{SendTime: "2026-09-15T10:00:00Z", TempDisplay: 4.8, HumidityDisplay: 55.5},
+			{SendTime: "2026-09-15T09:55:00Z", TempDisplay: 4.7, HumidityDisplay: 55.2},
+			{SendTime: "2026-09-15T09:50:00Z", TempDisplay: 4.6, HumidityDisplay: 55.0},
+		},
+	}}
+	client := newTestClient(t, srv)
+
+	readings, err := client.FetchTimeseries(context.Background(), "SN-00042")
+
+	require.NoError(t, err)
+	require.Len(t, readings, 3)
+	assert.Equal(t, 4.8, readings[0].TempDisplay)
+	assert.Equal(t, 4.6, readings[2].TempDisplay)
+	for _, r := range readings {
+		assert.Equal(t, "SN-00042", r.Serial)
+	}
+}
+
+func TestFetchTimeseries_EmptyWhenNoReadings(t *testing.T) {
+	srv := &fakeServer{snapshotResp: &pb.GetDeviceSnapshotResponse{
+		Device:     &pb.DeviceMetadata{Serial: "SN-00042"},
+		Timeseries: nil,
+	}}
+	client := newTestClient(t, srv)
+
+	readings, err := client.FetchTimeseries(context.Background(), "SN-00042")
+
+	require.NoError(t, err)
+	assert.Empty(t, readings)
+}
+
+func TestFetchTimeseries_ErrorMapped(t *testing.T) {
+	srv := &fakeServer{snapshotErr: status.Error(codes.NotFound, "unknown serial")}
+	client := newTestClient(t, srv)
+
+	_, err := client.FetchTimeseries(context.Background(), "SN-UNKNOWN")
+
+	require.Error(t, err)
+	var re portenvironment.RetryableError
+	require.True(t, errors.As(err, &re))
+	assert.False(t, re.Retryable())
+}
+
 func TestFetchSnapshot_EmptyTimeseriesNotFound(t *testing.T) {
 	srv := &fakeServer{snapshotResp: &pb.GetDeviceSnapshotResponse{
 		Device:     &pb.DeviceMetadata{Serial: "SN-00042"},

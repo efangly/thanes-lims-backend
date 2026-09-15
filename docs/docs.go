@@ -3822,6 +3822,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/partner-devices/{serial}/timeseries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "เรียกสดจาก SMtrack ทุกครั้ง (ไม่ผ่าน cache ของ poller เหมือน .../snapshot) - ได้ข้อมูลย้อนหลังสูงสุด 1 ชั่วโมงตามข้อจำกัดของ Partner API เอง เรียงจากใหม่ไปเก่า ว่างได้ถ้าอุปกรณ์ไม่มีค่าส่งเข้ามาในชั่วโมงที่ผ่านมา",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "partner-devices"
+                ],
+                "summary": "ข้อมูล time-series ย้อนหลัง 1 ชั่วโมงของ Partner Device (สำหรับทำกราฟ)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Serial ของ Partner Device",
+                        "name": "serial",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_partnerdevice.TimeseriesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/purchase-orders": {
             "get": {
                 "security": [
@@ -6778,6 +6836,34 @@ const docTemplate = `{
                 },
                 "temp_display": {
                     "type": "number"
+                }
+            }
+        },
+        "internal_adapters_http_partnerdevice.TimeseriesPointResponse": {
+            "type": "object",
+            "properties": {
+                "humidity_display": {
+                    "type": "number"
+                },
+                "send_time": {
+                    "type": "string"
+                },
+                "temp_display": {
+                    "type": "number"
+                }
+            }
+        },
+        "internal_adapters_http_partnerdevice.TimeseriesResponse": {
+            "type": "object",
+            "properties": {
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_partnerdevice.TimeseriesPointResponse"
+                    }
+                },
+                "serial": {
+                    "type": "string"
                 }
             }
         },

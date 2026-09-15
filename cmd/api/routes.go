@@ -279,14 +279,15 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	// docs/partner-api-guide.md, CONTEXT.md#environment, ADR 0011, ADR 0012):
 	// CRUD + the cached-snapshot/SSE read endpoints are always mounted
 	// (they're Postgres/Redis-only, no external dependency), but
-	// PollPartnerDevicesJob and the /discover endpoint - the only things
-	// that actually call out to the Partner API - are only built when
-	// PARTNER_API_ENABLED (partnerClient is non-nil), matching the Oracle
-	// chatbot's optional-integration pattern.
+	// PollPartnerDevicesJob and the /discover + /:serial/timeseries
+	// endpoints - the only things that actually call out to the Partner
+	// API - are only built when PARTNER_API_ENABLED (partnerClient is
+	// non-nil), matching the Oracle chatbot's optional-integration pattern.
 	partnerDeviceRepo := postgresenvironment.NewPartnerDeviceRepository(gdb)
 	partnerDeviceSSEHub := httppartnerdevice.NewSSEHub()
 	var pollPartnerDevicesJob *applicationenvironment.PollPartnerDevicesJob
 	var discoverPartnerDevices *applicationenvironment.DiscoverPartnerDevicesByWardUseCase
+	var getPartnerDeviceTimeseries *applicationenvironment.GetPartnerDeviceTimeseriesUseCase
 	if cfg.PartnerAPIEnabled {
 		pollPartnerDevice := applicationenvironment.NewPollPartnerDeviceUseCase(
 			partnerClient, redisCache, evaluateThresholds, partnerDeviceSSEHub,
@@ -294,6 +295,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 		)
 		pollPartnerDevicesJob = applicationenvironment.NewPollPartnerDevicesJob(partnerDeviceRepo, pollPartnerDevice)
 		discoverPartnerDevices = applicationenvironment.NewDiscoverPartnerDevicesByWardUseCase(partnerClient)
+		getPartnerDeviceTimeseries = applicationenvironment.NewGetPartnerDeviceTimeseriesUseCase(partnerClient)
 	}
 	partnerDeviceHandler := httppartnerdevice.NewHandler(
 		applicationenvironment.NewCreatePartnerDeviceUseCase(partnerDeviceRepo, gaugeRepo),
@@ -302,6 +304,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 		applicationenvironment.NewGetPartnerDeviceUseCase(partnerDeviceRepo),
 		applicationenvironment.NewGetPartnerDeviceSnapshotUseCase(redisCache, cfg.PartnerAPICacheTTL),
 		discoverPartnerDevices,
+		getPartnerDeviceTimeseries,
 		partnerDeviceSSEHub,
 	)
 	httppartnerdevice.RegisterRoutes(v1, partnerDeviceHandler, tokens, cfg.PartnerAPIEnabled)

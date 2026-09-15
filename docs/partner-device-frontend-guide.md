@@ -8,7 +8,7 @@
 
 - **Partner Device** = การ**ผูก** (`Serial` ↔ `Location`) ระหว่างอุปกรณ์จริงของ SMtrack กับ Location ที่มี Gauge (threshold) อยู่แล้วในระบบเรา — ไม่ใช่ตัวอุปกรณ์เอง
 - Backend มี background job **poll ทุก ๆ 30 วินาที** (ตั้งค่าได้ฝั่ง backend) ดึงค่าจาก SMtrack, ประเมินกับ threshold ของ Gauge, cache ผลไว้ที่ Redis (TTL สั้น ๆ) แล้ว broadcast ผ่าน SSE — **frontend ไม่เคยเรียก SMtrack ตรง ๆ**
-- ค่าที่อ่านได้ (`temp_display`, `humidity_display`, ...) เป็น**ค่าปัจจุบัน/ล่าสุดเท่านั้น** — **ไม่มีการเก็บ history ระยะยาวในระบบเรา** (ดู ADR 0011/0012) ถ้าต้องการกราฟย้อนหลัง ตอนนี้ backend ยังไม่มี endpoint ให้ (SMtrack เองก็ให้แค่ย้อนหลัง 1 ชั่วโมงต่อการเรียกหนึ่งครั้งหลังเปลี่ยนมาใช้ gRPC)
+- **ไม่มีการเก็บ history ระยะยาวในระบบเรา** (ดู ADR 0011/0012) — SMtrack เองก็ให้แค่ย้อนหลัง**สูงสุด 1 ชั่วโมง**ต่อการเรียกหนึ่งครั้ง ไม่มีทางขอช่วงเวลาที่กว้างกว่านั้นได้เลย (ไม่มี "ย้อนหลัง 1 วัน/1 สัปดาห์") ถ้าต้องการกราฟย้อนหลังเกิน 1 ชั่วโมง ตอนนี้ไม่มีทางทำได้ทั้งฝั่ง backend และ SMtrack — ใช้ `GET /partner-devices/:serial/timeseries` (ดูด้านล่าง) สำหรับกราฟช่วงสั้น ๆ ภายใน 1 ชั่วโมงล่าสุดเท่านั้น
 - **Ward เป็นแนวคิดของฝั่ง SMtrack เท่านั้น** (เช่น ICU, OPD) ไม่ใช่ `Location` ของเรา ห้ามเอามาปนกัน — ward ใช้แค่ตอนค้นหาอุปกรณ์ (ดู endpoint `/discover` ด้านล่าง) ไม่ถูกเก็บไว้ที่ไหนในระบบเรา
 
 ## Feature flag ที่ frontend ต้องรู้
@@ -17,16 +17,16 @@
 
 | เปิดเสมอ (ไม่ผูกกับ flag) | เปิดเฉพาะเมื่อ `PARTNER_API_ENABLED=true` |
 |---|---|
-| `POST /partner-devices`, `GET /partner-devices`, `GET /partner-devices/:serial`, `PATCH /partner-devices/:serial` (CRUD การผูก mapping — เก็บใน Postgres ล้วน ๆ) | `GET /partner-devices/discover` (ต้องเรียก SMtrack จริง) |
+| `POST /partner-devices`, `GET /partner-devices`, `GET /partner-devices/:serial`, `PATCH /partner-devices/:serial` (CRUD การผูก mapping — เก็บใน Postgres ล้วน ๆ) | `GET /partner-devices/discover`, `GET /partner-devices/:serial/timeseries` (ทั้งคู่เรียก SMtrack สด ๆ ทุกครั้ง) |
 | | `GET /partner-devices/:serial/snapshot`, `GET /partner-devices/stream` (มีข้อมูลก็ต่อเมื่อ poller ทำงานอยู่) |
 
-**เมื่อ flag ปิด**: `GET /discover` จะได้ `404 not_found` เพราะ route ไม่ถูกลงทะเบียนเลย (ไม่ใช่ 503) ส่วน `snapshot`/`stream` ยังเรียกได้ปกติแต่จะไม่มีข้อมูลใหม่ ๆ เข้ามา (cache จะว่างเปล่าหรือหยุดอัปเดต) — ถ้า UI ต้องซ่อนปุ่ม/เมนูที่เกี่ยวกับ live data เมื่อ flag ปิด ให้ backend ทีมช่วยยืนยันสถานะ flag แยกต่างหาก (ปัจจุบันยังไม่มี endpoint บอกสถานะ flag ตรง ๆ ให้ frontend เช็ค)
+**เมื่อ flag ปิด**: `GET /discover` และ `GET /:serial/timeseries` จะได้ `404 not_found` เพราะ route ไม่ถูกลงทะเบียนเลย (ไม่ใช่ 503) ส่วน `snapshot`/`stream` ยังเรียกได้ปกติแต่จะไม่มีข้อมูลใหม่ ๆ เข้ามา (cache จะว่างเปล่าหรือหยุดอัปเดต) — ถ้า UI ต้องซ่อนปุ่ม/เมนูที่เกี่ยวกับ live data เมื่อ flag ปิด ให้ backend ทีมช่วยยืนยันสถานะ flag แยกต่างหาก (ปัจจุบันยังไม่มี endpoint บอกสถานะ flag ตรง ๆ ให้ frontend เช็ค)
 
 ## Permission ที่ต้องมี (RBAC module: `partnerdevice`)
 
 | Action | endpoint ที่ใช้ |
 |---|---|
-| `partnerdevice:view` | `GET /partner-devices`, `GET /partner-devices/:serial`, `GET /partner-devices/:serial/snapshot`, `GET /partner-devices/stream`, `GET /partner-devices/discover` |
+| `partnerdevice:view` | `GET /partner-devices`, `GET /partner-devices/:serial`, `GET /partner-devices/:serial/snapshot`, `GET /partner-devices/:serial/timeseries`, `GET /partner-devices/stream`, `GET /partner-devices/discover` |
 | `partnerdevice:create` | `POST /partner-devices` |
 | `partnerdevice:edit` | `PATCH /partner-devices/:serial` |
 
@@ -58,6 +58,19 @@
   "level": "crit",                      // "ok" | "warn" | "crit" ตาม threshold ของ Gauge
   "fetched_at": "2026-09-15T16:19:16+07:00", // เวลาที่ backend poll สำเร็จล่าสุด
   "stale": false                        // true = poll ล้มเหลวชั่วคราว, ค่านี้เป็นของเก่าที่ fallback มาโชว์
+}
+```
+
+```jsonc
+// TimeseriesResponse — ย้อนหลังสูงสุด 1 ชั่วโมง เรียงใหม่→เก่า (สำหรับทำกราฟ)
+{
+  "serial": "eTPV2-2P-L0168-1068-055",
+  "points": [
+    { "send_time": "2026-09-15T10:35:00Z", "temp_display": 24.95, "humidity_display": 58.66 },
+    { "send_time": "2026-09-15T10:30:00Z", "temp_display": 24.74, "humidity_display": 59.57 },
+    { "send_time": "2026-09-15T10:25:00Z", "temp_display": 24.00, "humidity_display": 62.28 }
+    // ... ลงไปเรื่อย ๆ จนถึงย้อนหลังสุด 1 ชั่วโมง
+  ]
 }
 ```
 
@@ -140,6 +153,23 @@ GET /partner-devices/:serial/snapshot
 - ยังไม่เคย poll สำเร็จเลยสักครั้ง (เช่น เพิ่งสร้าง mapping, หรือ `active: false` มาตลอด) → `404 not_found`
 - `stale: true` = poll ล้มเหลวแบบชั่วคราว (rate limit / เครือข่ายมีปัญหาฝั่ง SMtrack) แต่ backend ยังมีค่าเก่าคืนให้แทนการ error ทันที — **แนะนำให้ frontend โชว์ badge "ข้อมูลอาจไม่ล่าสุด" เมื่อ `stale === true`** แทนการซ่อนค่าไปเลย
 
+### ดูข้อมูลย้อนหลังสำหรับทำกราฟ (time-series)
+
+```
+GET /partner-devices/:serial/timeseries
+→ 200 { data: TimeseriesResponse }
+```
+
+ใช้ endpoint นี้เมื่อต้องการ**เส้นกราฟ** (ไม่ใช่แค่ตัวเลขปัจจุบันแบบ `/snapshot`) — คืนจุดข้อมูลย้อนหลังทั้งหมดที่ SMtrack มีในหน้าต่างเวลาที่กำหนดตายตัว เรียงจาก**ใหม่ไปเก่า** (`points[0]` คือค่าล่าสุด)
+
+**ข้อจำกัดที่สำคัญมาก ต้องออกแบบ UI ให้รองรับ**:
+- **ได้ย้อนหลังสูงสุด 1 ชั่วโมงเท่านั้น** — ไม่มี parameter ให้ขอช่วงเวลาอื่น (ไม่มี `from`/`to`/`range`) เพราะ SMtrack เองก็ไม่รองรับการขอช่วงกว้างกว่านี้อีกต่อไป (ก่อนหน้านี้ตอนยังเป็น REST เคยขอได้ถึง 30 วัน แต่หลังเปลี่ยนมาเป็น gRPC ความสามารถนี้หายไปแล้ว — ดู `docs/adr/0012-partner-api-grpc-transport.md`) **กราฟจากอุปกรณ์นี้จะแสดงได้แค่ "1 ชั่วโมงล่าสุด" เท่านั้น ไม่มีทางทำกราฟ "24 ชั่วโมง" หรือ "7 วัน" ได้จาก endpoint นี้**
+- **เรียกสดทุกครั้ง ไม่มี cache** — ต่างจาก `/snapshot` ตรงที่ endpoint นี้ยิงไปหา SMtrack จริงทุกครั้งที่เรียก (นับรวมใน rate limit ของ backend ต่อ SMtrack ด้วย) **ไม่ควร poll ถี่เกินไปฝั่ง frontend** (เช่นทุก 5-10 วินาทีก็เกินความจำเป็น เพราะอุปกรณ์ส่งค่าใหม่เข้ามาห่างกันหลายนาที) แนะนำ poll ทุก 1-5 นาที หรือให้ user กด refresh เอง
+- ข้อมูลอาจมี**จุดซ้ำเวลาเดียวกัน** ในบางช่วง (พฤติกรรมจาก SMtrack เอง ไม่ใช่ bug ฝั่งเรา) — ถ้าทำกราฟเส้นแล้วเห็นจุดซ้อนกันที่ timestamp เดิม เป็นเรื่องปกติ ไม่ต้อง dedupe ก็ได้ (ไม่กระทบรูปกราฟ) แต่ถ้าต้องการความสวยงามอาจ dedupe โดยยึด `send_time` เป็น key
+- อุปกรณ์ไม่มีค่าส่งมาเลยในชั่วโมงที่ผ่านมา → `points` เป็น array ว่าง (ไม่ error) ให้ UI โชว์สถานะ "ไม่มีข้อมูลในช่วงนี้" แทนกราฟเปล่า
+- serial ไม่มีสิทธิ์เห็น/ไม่มีจริงบน SMtrack → `404 not_found` (แยกไม่ออกจาก "ไม่มีอยู่จริง" เหมือน `/discover`)
+- **ไม่ต้องมี mapping (`PartnerDevice`) มาก่อนก็เรียกได้** — endpoint นี้ไม่เช็คว่า serial ถูกผูกไว้ในระบบเราหรือยัง (เหมือน `/discover`) เอาไว้ใช้ดูกราฟตัวอย่างก่อนสร้าง mapping จริงก็ได้
+
 ### Live update ผ่าน SSE
 
 ```
@@ -190,6 +220,10 @@ while (true) {
 
 5. เปิด GET /partner-devices/stream ค้างไว้ในหน้าจอ
    → รับ update อัตโนมัติทุกรอบ poll โดยไม่ต้อง poll ฝั่ง frontend เอง (polling ฝั่ง client ก็ทำได้ ถ้าไม่อยากใช้ SSE — เรียก snapshot ซ้ำทุก ๆ 30+ วินาทีก็พอ)
+
+6. (ถ้าต้องการกราฟ) GET /partner-devices/eTPV2-2P-L0168-1068-055/timeseries
+   → ได้จุดข้อมูลย้อนหลังสูงสุด 1 ชั่วโมง เอาไปวาดเป็นเส้นกราฟ temp_display/humidity_display ตาม send_time
+   → เรียกซ้ำเป็นระยะ (แนะนำทุก 1-5 นาที) ถ้าต้องการให้กราฟขยับตามเวลาจริง ไม่ใช่ทุกครั้งที่ re-render
 ```
 
 ## Error codes ที่เกี่ยวข้อง (ทุก endpoint ในเอกสารนี้)
@@ -198,5 +232,5 @@ while (true) {
 |------|---|---|
 | 400 | `validation_failed` | `serial`/`location` ว่าง, `ward` ว่างตอน discover |
 | 401 | `unauthorized` | ไม่ได้ login / token หมดอายุ |
-| 404 | `not_found` | serial mapping ไม่มีจริง, location ไม่มี Gauge, snapshot ยังไม่เคย poll สำเร็จ, ward ไม่มี/ไม่มีสิทธิ์เห็น, **หรือ route `/discover` ไม่ถูกลงทะเบียนเพราะ flag ปิด** |
+| 404 | `not_found` | serial mapping ไม่มีจริง, location ไม่มี Gauge, snapshot ยังไม่เคย poll สำเร็จ, ward/serial ไม่มี/ไม่มีสิทธิ์เห็นบน SMtrack (ทั้ง `/discover` และ `/timeseries`), **หรือ route `/discover`/`/timeseries` ไม่ถูกลงทะเบียนเพราะ flag ปิด** |
 | 409 | `conflict` | สร้าง mapping ด้วย serial ที่ผูกไว้แล้ว |

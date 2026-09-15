@@ -85,6 +85,27 @@ type DiscoverDevicesResponse struct {
 	Limit   int                      `json:"limit"`
 }
 
+// TimeseriesPointResponse is one telemetry reading, ordered newest first
+// (matches the Partner API's own order) - for on-demand chart rendering.
+type TimeseriesPointResponse struct {
+	SendTime        time.Time `json:"send_time"`
+	TempDisplay     float64   `json:"temp_display"`
+	HumidityDisplay float64   `json:"humidity_display"`
+}
+
+type TimeseriesResponse struct {
+	Serial string                    `json:"serial"`
+	Points []TimeseriesPointResponse `json:"points"`
+}
+
+func toTimeseriesResponse(serial string, readings []portenvironment.PartnerDeviceReading) TimeseriesResponse {
+	points := make([]TimeseriesPointResponse, len(readings))
+	for i, r := range readings {
+		points[i] = TimeseriesPointResponse{SendTime: r.SendTime, TempDisplay: r.TempDisplay, HumidityDisplay: r.HumidityDisplay}
+	}
+	return TimeseriesResponse{Serial: serial, Points: points}
+}
+
 func toDiscoverResponse(l portenvironment.PartnerDeviceListing) DiscoverDevicesResponse {
 	out := DiscoverDevicesResponse{
 		Devices: make([]DiscoverDeviceResponse, len(l.Devices)),

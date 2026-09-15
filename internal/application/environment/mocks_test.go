@@ -100,6 +100,13 @@ func (m *mockPartnerAPIClient) ListDevicesByWard(ctx context.Context, ward strin
 	args := m.Called(ctx, ward, page, limit)
 	return args.Get(0).(portenvironment.PartnerDeviceListing), args.Error(1)
 }
+func (m *mockPartnerAPIClient) FetchTimeseries(ctx context.Context, serial string) ([]portenvironment.PartnerDeviceReading, error) {
+	args := m.Called(ctx, serial)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]portenvironment.PartnerDeviceReading), args.Error(1)
+}
 
 type mockPartnerDeviceBroadcaster struct{ mock.Mock }
 

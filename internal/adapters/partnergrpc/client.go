@@ -167,6 +167,30 @@ func (c *Client) FetchSnapshot(ctx context.Context, serial string) (portenvironm
 	return meta, reading, true, nil
 }
 
+// FetchTimeseries returns every point in the trailing 1h window
+// (GetDeviceSnapshot's timeseries, newest first) - unlike FetchSnapshot,
+// nothing here is discarded, for on-demand chart rendering.
+func (c *Client) FetchTimeseries(ctx context.Context, serial string) ([]portenvironment.PartnerDeviceReading, error) {
+	ctx, cancel := context.WithTimeout(c.withAuth(ctx), c.timeout)
+	defer cancel()
+
+	resp, err := c.client.GetDeviceSnapshot(ctx, &pb.GetDeviceSnapshotRequest{Serial: serial})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+
+	points := resp.GetTimeseries()
+	out := make([]portenvironment.PartnerDeviceReading, 0, len(points))
+	for _, p := range points {
+		reading, err := toReading(serial, p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, reading)
+	}
+	return out, nil
+}
+
 // ListDevicesByWard returns every device SMtrack reports in ward (that the
 // configured API key is scoped to), each with its single latest reading if
 // it has one.

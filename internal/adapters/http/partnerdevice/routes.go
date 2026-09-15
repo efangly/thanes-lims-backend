@@ -7,11 +7,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// discoverEnabled gates the /discover route: it has nothing to serve
-// without a live Partner API gRPC connection, so it's only mounted when
-// PARTNER_API_ENABLED=true (h.discover is non-nil in that case - see
-// NewHandler).
-func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService, discoverEnabled bool) {
+// liveReadsEnabled gates /discover and /:serial/timeseries: both call the
+// Partner API live (unlike every other route here, which is Postgres/Redis
+// only), so they have nothing to serve without a live gRPC connection -
+// only mounted when PARTNER_API_ENABLED=true (h.discover/h.timeseries are
+// non-nil in that case - see NewHandler).
+func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService, liveReadsEnabled bool) {
 	authGuard := middleware.Auth(tokens)
 	requireView := middleware.RequirePermission(rbac.ModulePartnerDevice, rbac.ActionView)
 
@@ -28,10 +29,13 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService, di
 	// Static "/stream" and "/discover" are registered before the "/:serial"
 	// wildcard so neither can be swallowed as a serial value.
 	pd.Get("/stream", requireView, h.Stream)
-	if discoverEnabled {
+	if liveReadsEnabled {
 		pd.Get("/discover", requireView, h.Discover)
 	}
 	pd.Get("/:serial", requireView, h.Get)
 	pd.Patch("/:serial", middleware.RequirePermission(rbac.ModulePartnerDevice, rbac.ActionEdit), h.Update)
 	pd.Get("/:serial/snapshot", requireView, h.GetSnapshot)
+	if liveReadsEnabled {
+		pd.Get("/:serial/timeseries", requireView, h.GetTimeseries)
+	}
 }

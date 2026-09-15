@@ -18,12 +18,14 @@ type Handler struct {
 	get         *applicationenvironment.GetPartnerDeviceUseCase
 	getSnapshot *applicationenvironment.GetPartnerDeviceSnapshotUseCase
 	discover    *applicationenvironment.DiscoverPartnerDevicesByWardUseCase
+	timeseries  *applicationenvironment.GetPartnerDeviceTimeseriesUseCase
 	hub         *SSEHub
 }
 
-// discover is nil when PARTNER_API_ENABLED=false - RegisterRoutes only
-// mounts /discover when it's non-nil, so Handler.Discover is never called
-// with a nil use case.
+// discover and timeseries are nil when PARTNER_API_ENABLED=false -
+// RegisterRoutes only mounts /discover and /:serial/timeseries when they're
+// non-nil, so Handler.Discover/GetTimeseries are never called with a nil
+// use case.
 func NewHandler(
 	create *applicationenvironment.CreatePartnerDeviceUseCase,
 	update *applicationenvironment.UpdatePartnerDeviceUseCase,
@@ -31,9 +33,10 @@ func NewHandler(
 	get *applicationenvironment.GetPartnerDeviceUseCase,
 	getSnapshot *applicationenvironment.GetPartnerDeviceSnapshotUseCase,
 	discover *applicationenvironment.DiscoverPartnerDevicesByWardUseCase,
+	timeseries *applicationenvironment.GetPartnerDeviceTimeseriesUseCase,
 	hub *SSEHub,
 ) *Handler {
-	return &Handler{create: create, update: update, list: list, get: get, getSnapshot: getSnapshot, discover: discover, hub: hub}
+	return &Handler{create: create, update: update, list: list, get: get, getSnapshot: getSnapshot, discover: discover, timeseries: timeseries, hub: hub}
 }
 
 // Create godoc
@@ -172,6 +175,27 @@ func (h *Handler) GetSnapshot(c fiber.Ctx) error {
 		return err
 	}
 	return response.OK(c, toSnapshotResponse(snap))
+}
+
+// GetTimeseries godoc
+//
+//	@Summary		ข้อมูล time-series ย้อนหลัง 1 ชั่วโมงของ Partner Device (สำหรับทำกราฟ)
+//	@Description	เรียกสดจาก SMtrack ทุกครั้ง (ไม่ผ่าน cache ของ poller เหมือน .../snapshot) - ได้ข้อมูลย้อนหลังสูงสุด 1 ชั่วโมงตามข้อจำกัดของ Partner API เอง เรียงจากใหม่ไปเก่า ว่างได้ถ้าอุปกรณ์ไม่มีค่าส่งเข้ามาในชั่วโมงที่ผ่านมา
+//	@Tags			partner-devices
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			serial	path		string	true	"Serial ของ Partner Device"
+//	@Success		200		{object}	response.Envelope{data=TimeseriesResponse}
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/partner-devices/{serial}/timeseries [get]
+func (h *Handler) GetTimeseries(c fiber.Ctx) error {
+	serial := c.Params("serial")
+	readings, err := h.timeseries.Execute(c.Context(), serial)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toTimeseriesResponse(serial, readings))
 }
 
 // Discover godoc

@@ -718,6 +718,24 @@ definitions:
       temp_display:
         type: number
     type: object
+  internal_adapters_http_partnerdevice.TimeseriesPointResponse:
+    properties:
+      humidity_display:
+        type: number
+      send_time:
+        type: string
+      temp_display:
+        type: number
+    type: object
+  internal_adapters_http_partnerdevice.TimeseriesResponse:
+    properties:
+      points:
+        items:
+          $ref: '#/definitions/internal_adapters_http_partnerdevice.TimeseriesPointResponse'
+        type: array
+      serial:
+        type: string
+    type: object
   internal_adapters_http_partnerdevice.UpdatePartnerDeviceRequest:
     properties:
       active:
@@ -3228,6 +3246,42 @@ paths:
       security:
       - BearerAuth: []
       summary: ข้อมูลล่าสุดของ Partner Device (metadata + reading + alert)
+      tags:
+      - partner-devices
+  /partner-devices/{serial}/timeseries:
+    get:
+      description: เรียกสดจาก SMtrack ทุกครั้ง (ไม่ผ่าน cache ของ poller เหมือน .../snapshot)
+        - ได้ข้อมูลย้อนหลังสูงสุด 1 ชั่วโมงตามข้อจำกัดของ Partner API เอง เรียงจากใหม่ไปเก่า
+        ว่างได้ถ้าอุปกรณ์ไม่มีค่าส่งเข้ามาในชั่วโมงที่ผ่านมา
+      parameters:
+      - description: Serial ของ Partner Device
+        in: path
+        name: serial
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.TimeseriesResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ข้อมูล time-series ย้อนหลัง 1 ชั่วโมงของ Partner Device (สำหรับทำกราฟ)
       tags:
       - partner-devices
   /partner-devices/discover:

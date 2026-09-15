@@ -63,6 +63,13 @@ type PartnerAPIClient interface {
 	// creating a PartnerDevice (Serial<->Location) mapping - read-through,
 	// never persisted (see ADR 0011).
 	ListDevicesByWard(ctx context.Context, ward string, page, limit int) (PartnerDeviceListing, error)
+
+	// FetchTimeseries returns the full trailing 1h window of telemetry for
+	// serial (GetDeviceSnapshot's timeseries, newest first) - every point,
+	// not just the latest, for on-demand chart rendering. Always a live
+	// call to the Partner API; nothing here is cached (unlike FetchSnapshot,
+	// which only the poller calls).
+	FetchTimeseries(ctx context.Context, serial string) ([]PartnerDeviceReading, error)
 }
 
 // RetryableError distinguishes a transient PartnerAPIClient failure (rate
