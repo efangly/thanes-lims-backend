@@ -119,6 +119,17 @@ func main() {
 
 	fiberCfg := fiber.Config{
 		ErrorHandler: middleware.ErrorMapper,
+		// fasthttp's default ReadBufferSize (4096) is too small once a real
+		// browser's standard headers (sec-ch-ua, sec-fetch-*, accept-*,
+		// cookies, etc.) are combined with our JWT access token - it embeds
+		// the full RBAC permission list and easily runs 1.5-2KB for an admin
+		// (see internal/domain/rbac). A sufficiently long request path (e.g.
+		// a Partner Device serial in the URL) pushed real requests over 4096
+		// bytes, and fasthttp hard-fails with 431 Request Header Fields Too
+		// Large before the request ever reaches a handler - this isn't
+		// attacker-sized input, it's normal traffic. 16KB matches common
+		// reverse-proxy defaults (e.g. nginx's doubled 8k) with headroom.
+		ReadBufferSize: 16384,
 	}
 	// Only trust proxy headers (X-Forwarded-For etc.) from the configured
 	// load balancers, so the client IP stored in a Token Family can't be
