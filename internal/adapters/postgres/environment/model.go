@@ -31,3 +31,11 @@ type AlertModel struct {
 }
 
 func (AlertModel) TableName() string { return "env_alerts" }
+
+type PartnerDeviceModel struct {
+	Serial   string `gorm:"primaryKey"`
+	Location string
+	Active   bool
+}
+
+func (PartnerDeviceModel) TableName() string { return "partner_devices" }

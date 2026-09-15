@@ -86,6 +86,20 @@ _Implemented (Phase 8, 2026-08-27)_: `internal/domain/inventory/inventory_lot.go
 _Avoid_: Auto-allocation, FEFO pick (the system may suggest, but Lot selection is always a manual, explicit user choice)
 _Implemented (Phase 9, 2026-08-27)_: `IssueStockUseCase` (`internal/application/inventory/issue_stock.go`) → `POST /inventory/{id}/issue` (permission `inventory:edit`). Body `{lines: [{lot_id, quantity>0}], force}` — one line per Lot, multi-line for a split withdrawal. Validates ≥1 line, each Lot exists and belongs to the item, no duplicate `lot_id`. If a line's quantity exceeds its Lot's balance and `force` is not set, **nothing is applied** and the response is `{applied: false, shortfalls: [{lot_id, lot_no, requested, available}], item, lots}` (real balances — the caller then adds another lot line or re-submits with `force: true`). With `force: true` every line is drawn down and the Lot Quantity may go negative (ADR 0008). Reuses `LotRepository.FindByID` + `UpdateQuantity`; **no ledger table or migration** — the audit middleware records the item field-diff when applied. Seed unchanged.
 
+## Environment
+
+**Gauge** — Config for one monitored Location: `Unit`, `RangeMin`, `RangeMax`. Keyed by `Location` (string) — a Gauge has no separate surrogate id; `Location` *is* its identity.
+_Avoid_: Sensor, device (a Gauge is the threshold config for a Location, not a physical thing — see Partner Device below for the physical-hardware sense)
+
+**Sensor Reading** — One recorded `Value` at a `Location` at a point in time (`RecordedAt`), persisted permanently. The system-of-record reading source, fed by whatever hardware/integration produces readings for that Location.
+
+**Env Alert** — An open-or-resolved excursion record for a Location: `Level` (`ok`/`warn`/`crit`), `Title`, `Message`, `TriggeredAt`, `ResolvedAt`. References a Location by string, not a specific Sensor Reading row — so an Env Alert can be raised from a reading that was never persisted (see Partner Device). At most one open Env Alert per Location at a time.
+
+**Level** — `DeriveLevel(value, gauge)` classification of a reading against its Gauge's range: `ok` inside `RangeMin`–`RangeMax`, `warn` within a 10%-of-range-width margin outside it, `crit` further out.
+
+**Partner Device** — The mapping between one physical third-party sensor unit (identified by its `Serial`, per `docs/partner-api-guide.md`) and the Location whose Gauge its readings should be evaluated against: `Serial`, `Location` (FK to an existing Gauge's `Location` — never auto-created), `Active` (bool; deactivating pauses polling without deleting the mapping). A Partner Device's readings are never persisted as Sensor Readings — SMtrack (the partner) stays the system of record for the raw history; only the derived Env Alert is persisted here, same as any other Location.
+_Avoid_: Sensor, device (ambiguous with Gauge's implicit "device" reading) — always say "Partner Device" for the physical unit tracked by Serial
+
 ## Access Control
 
 **Role** — A named set of Permissions assigned to a User (exactly one Role per User): Admin, Lab Manager, QA, Scientist, or General. Determines what the User is allowed to do; carries no other meaning (not a job title or org-chart position).

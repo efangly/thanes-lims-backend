@@ -16,6 +16,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	redisadapter "github.com/efangly/thanes-lims-backend/internal/adapters/redis"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
+	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationpurchaseorder "github.com/efangly/thanes-lims-backend/internal/application/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/config"
 	"github.com/gofiber/fiber/v3"
@@ -122,7 +123,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	autoReorderJob := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache)
+	jobs := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {
@@ -133,9 +134,16 @@ func main() {
 	jobCtx, cancelJob := context.WithCancel(context.Background())
 	jobDone := make(chan struct{})
 	if cfg.AutoReorderEnabled {
-		go runAutoReorderJob(jobCtx, jobDone, autoReorderJob, cfg.AutoReorderInterval)
+		go runAutoReorderJob(jobCtx, jobDone, jobs.AutoReorder, cfg.AutoReorderInterval)
 	} else {
 		close(jobDone)
+	}
+
+	partnerDeviceJobDone := make(chan struct{})
+	if cfg.PartnerAPIEnabled {
+		go runPollPartnerDevicesJob(jobCtx, partnerDeviceJobDone, jobs.PollPartnerDevices, cfg.PartnerAPIPollInterval)
+	} else {
+		close(partnerDeviceJobDone)
 	}
 
 	quit := make(chan os.Signal, 1)
@@ -144,6 +152,7 @@ func main() {
 
 	cancelJob()
 	<-jobDone
+	<-partnerDeviceJobDone
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -207,6 +216,27 @@ func runAutoReorderJob(ctx context.Context, done chan<- struct{}, job *applicati
 			return
 		case <-ticker.C:
 			runOnce()
+		}
+	}
+}
+
+// runPollPartnerDevicesJob periodically polls every Active Partner Device's
+// metadata/reading from the Partner API, refreshing the cached snapshot and
+// pushing it to SSE subscribers (see ADR 0011). Same run-once-then-tick,
+// cancel-to-exit shape as runAutoReorderJob.
+func runPollPartnerDevicesJob(ctx context.Context, done chan<- struct{}, job *applicationenvironment.PollPartnerDevicesJob, interval time.Duration) {
+	defer close(done)
+
+	job.Run(ctx)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			job.Run(ctx)
 		}
 	}
 }

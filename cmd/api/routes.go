@@ -18,6 +18,7 @@ import (
 	httpinventory "github.com/efangly/thanes-lims-backend/internal/adapters/http/inventory"
 	httplocation "github.com/efangly/thanes-lims-backend/internal/adapters/http/location"
 	httpnotification "github.com/efangly/thanes-lims-backend/internal/adapters/http/notification"
+	httppartnerdevice "github.com/efangly/thanes-lims-backend/internal/adapters/http/partnerdevice"
 	httppurchaseorder "github.com/efangly/thanes-lims-backend/internal/adapters/http/purchaseorder"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
 	httpsample "github.com/efangly/thanes-lims-backend/internal/adapters/http/sample"
@@ -28,6 +29,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
 	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/partnerapi"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
@@ -66,12 +68,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// Jobs bundles the background jobs registerRoutes composes from the same
+// repositories it wires up for HTTP, so main can run them on a schedule
+// alongside the HTTP server. A nil field means that job is disabled by
+// config and main must not start it.
+type Jobs struct {
+	AutoReorder        *applicationpurchaseorder.AutoReorderJob
+	PollPartnerDevices *applicationenvironment.PollPartnerDevicesJob
+}
+
 // registerRoutes mounts each module's routes onto the /api/v1 group. Module
 // registration calls are added here as each module is built (user, sample,
 // testresult, ... per the implementation plan). It also returns the
-// auto-reorder job so main can run it on a schedule alongside the HTTP
-// server, since it's composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache) *applicationpurchaseorder.AutoReorderJob {
+// background jobs so main can run them on a schedule alongside the HTTP
+// server, since they're composed from the same repositories wired up here.
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache) Jobs {
 	// oracleMirror is non-nil only when the writable ADB connection is up; the
 	// wrap* helpers below then make every Postgres write also MERGE into the
 	// chatbot POC's Oracle mirror (best-effort - see internal/adapters/oracle/mirror).
@@ -264,6 +275,33 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	)
 	httpenvironment.RegisterRoutes(v1, environmentHandler, tokens)
 
+	// Partner Device (SMtrack third-party device data, docs/partner-api-guide.md,
+	// CONTEXT.md#environment, ADR 0011): CRUD + the cached-snapshot/SSE read
+	// endpoints are always mounted (they're Postgres/Redis-only, no external
+	// dependency), but PollPartnerDevicesJob - the only thing that actually
+	// calls out to the Partner API - is only built when PARTNER_API_ENABLED,
+	// matching the Oracle chatbot's optional-integration pattern.
+	partnerDeviceRepo := postgresenvironment.NewPartnerDeviceRepository(gdb)
+	partnerDeviceSSEHub := httppartnerdevice.NewSSEHub()
+	var pollPartnerDevicesJob *applicationenvironment.PollPartnerDevicesJob
+	if cfg.PartnerAPIEnabled {
+		partnerAPIClient := partnerapi.New(cfg.PartnerAPIBaseURL, cfg.PartnerAPIKey)
+		pollPartnerDevice := applicationenvironment.NewPollPartnerDeviceUseCase(
+			partnerAPIClient, redisCache, evaluateThresholds, partnerDeviceSSEHub,
+			cfg.PartnerAPICacheTTL, cfg.PartnerAPIStaleMax,
+		)
+		pollPartnerDevicesJob = applicationenvironment.NewPollPartnerDevicesJob(partnerDeviceRepo, pollPartnerDevice)
+	}
+	partnerDeviceHandler := httppartnerdevice.NewHandler(
+		applicationenvironment.NewCreatePartnerDeviceUseCase(partnerDeviceRepo, gaugeRepo),
+		applicationenvironment.NewUpdatePartnerDeviceUseCase(partnerDeviceRepo, gaugeRepo),
+		applicationenvironment.NewListPartnerDevicesUseCase(partnerDeviceRepo),
+		applicationenvironment.NewGetPartnerDeviceUseCase(partnerDeviceRepo),
+		applicationenvironment.NewGetPartnerDeviceSnapshotUseCase(redisCache, cfg.PartnerAPICacheTTL),
+		partnerDeviceSSEHub,
+	)
+	httppartnerdevice.RegisterRoutes(v1, partnerDeviceHandler, tokens)
+
 	notificationHandler := httpnotification.NewHandler(
 		applicationnotification.NewListNotificationsUseCase(notificationRepo),
 		applicationnotification.NewMarkReadUseCase(notificationRepo),
@@ -287,5 +325,5 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	)
 	httpaudit.RegisterRoutes(v1, auditHandler, tokens)
 
-	return autoReorderJob
+	return Jobs{AutoReorder: autoReorderJob, PollPartnerDevices: pollPartnerDevicesJob}
 }

@@ -638,6 +638,63 @@ definitions:
       tone:
         type: string
     type: object
+  internal_adapters_http_partnerdevice.CreatePartnerDeviceRequest:
+    properties:
+      active:
+        type: boolean
+      location:
+        type: string
+      serial:
+        type: string
+    required:
+    - location
+    - serial
+    type: object
+  internal_adapters_http_partnerdevice.PartnerDeviceResponse:
+    properties:
+      active:
+        type: boolean
+      location:
+        type: string
+      serial:
+        type: string
+    type: object
+  internal_adapters_http_partnerdevice.SnapshotResponse:
+    properties:
+      fetched_at:
+        type: string
+      firmware:
+        type: string
+      humidity_display:
+        type: number
+      level:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      online:
+        type: boolean
+      send_time:
+        type: string
+      serial:
+        type: string
+      stale:
+        type: boolean
+      status:
+        type: boolean
+      temp_display:
+        type: number
+    type: object
+  internal_adapters_http_partnerdevice.UpdatePartnerDeviceRequest:
+    properties:
+      active:
+        type: boolean
+      location:
+        type: string
+    required:
+    - location
+    type: object
   internal_adapters_http_purchaseorder.MarkReceivedRequest:
     properties:
       expire_date:
@@ -2960,6 +3017,207 @@ paths:
       summary: ทำเครื่องหมายว่าอ่านแล้วทั้งหมด
       tags:
       - notifications
+  /partner-devices:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_http_partnerdevice.PartnerDeviceResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: รายการ Partner Device ทั้งหมด
+      tags:
+      - partner-devices
+    post:
+      consumes:
+      - application/json
+      description: Location ต้องเป็น Gauge ที่มีอยู่แล้ว - ไม่สร้างใหม่ให้อัตโนมัติ
+      parameters:
+      - description: ข้อมูล Partner Device
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_partnerdevice.CreatePartnerDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.PartnerDeviceResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: เพิ่มการผูก Partner Device (Serial) กับ Location
+      tags:
+      - partner-devices
+  /partner-devices/{serial}:
+    get:
+      parameters:
+      - description: Serial ของ Partner Device
+        in: path
+        name: serial
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.PartnerDeviceResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ดึงข้อมูลการผูก Partner Device ตาม Serial
+      tags:
+      - partner-devices
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Serial ของ Partner Device
+        in: path
+        name: serial
+        required: true
+        type: string
+      - description: ข้อมูลที่ต้องการแก้ไข
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_partnerdevice.UpdatePartnerDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.PartnerDeviceResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: แก้ไขการผูก Partner Device (เปลี่ยน Location หรือปิด/เปิด Active)
+      tags:
+      - partner-devices
+  /partner-devices/{serial}/snapshot:
+    get:
+      description: อ่านจาก cache ที่ background poller เก็บไว้เท่านั้น (ไม่เรียก Partner
+        API ตรงๆ) - stale:true เมื่อข้อมูลเก่ากว่า cache TTL
+      parameters:
+      - description: Serial ของ Partner Device
+        in: path
+        name: serial
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.SnapshotResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ข้อมูลล่าสุดของ Partner Device (metadata + reading + alert)
+      tags:
+      - partner-devices
+  /partner-devices/stream:
+    get:
+      description: text/event-stream - ส่ง event ใหม่ทุกครั้งที่ background poller
+        ได้ข้อมูลใหม่ (ทุก PARTNER_API_POLL_INTERVAL วินาทีต่อ device)
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: text/event-stream
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: SSE stream ของ snapshot Partner Device ทุกตัวที่ถูก poll
+      tags:
+      - partner-devices
   /purchase-orders:
     get:
       produces:

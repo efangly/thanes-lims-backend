@@ -23,6 +23,13 @@ const (
 	ModuleNotification  Module = "notification"
 	ModuleAudit         Module = "audit"
 	ModuleChatbot       Module = "chatbot"
+	// ModulePartnerDevice guards the Serial<->Location mapping CRUD and the
+	// live snapshot/SSE endpoints for third-party Partner API devices (see
+	// CONTEXT.md#environment). Deliberately its own Module, not folded into
+	// ModuleEnvironment: environment:view is already broadly granted (Lab
+	// Manager/QA/Scientist/General), but Partner Device data should default
+	// to Admin-only until deliberately extended via RBAC.
+	ModulePartnerDevice Module = "partnerdevice"
 )
 
 // Action is the verb half of a Permission.

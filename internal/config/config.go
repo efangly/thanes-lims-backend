@@ -77,12 +77,31 @@ type Config struct {
 	AnthropicAPIKey  string `env:"ANTHROPIC_API_KEY"`
 	ChatbotModel     string `env:"CHATBOT_MODEL" envDefault:"claude-haiku-4-5-20251001"`
 	OracleChatbotDSN string `env:"ORACLE_CHATBOT_DSN"`
+
+	// Partner Device (SMtrack third-party device data, docs/partner-api-guide.md
+	// and CONTEXT.md#environment) - optional integration, off by default.
+	// PartnerAPIEnabled makes the dependency explicit, matching
+	// OracleEnabled: when true, PARTNER_API_BASE_URL and PARTNER_API_KEY are
+	// required and a missing value fails at boot. PartnerAPIPollInterval
+	// drives PollPartnerDevicesJob; PartnerAPICacheTTL is the freshness
+	// window before a served snapshot is marked stale; PartnerAPIStaleMax is
+	// the hard cutoff (also the Redis TTL on the cached snapshot) after
+	// which a failed poll has nothing left to fall back to (see ADR 0011).
+	PartnerAPIEnabled      bool          `env:"PARTNER_API_ENABLED" envDefault:"false"`
+	PartnerAPIBaseURL      string        `env:"PARTNER_API_BASE_URL"`
+	PartnerAPIKey          string        `env:"PARTNER_API_KEY"`
+	PartnerAPIPollInterval time.Duration `env:"PARTNER_API_POLL_INTERVAL" envDefault:"30s"`
+	PartnerAPICacheTTL     time.Duration `env:"PARTNER_API_CACHE_TTL" envDefault:"45s"`
+	PartnerAPIStaleMax     time.Duration `env:"PARTNER_API_STALE_MAX" envDefault:"5m"`
 }
 
 // validate checks cross-field constraints that the env tags can't express.
 func (c *Config) validate() error {
 	if c.OracleEnabled && c.OracleDSN == "" {
 		return fmt.Errorf("ORACLE_ENABLED=true but ORACLE_DSN is not set")
+	}
+	if c.PartnerAPIEnabled && (c.PartnerAPIBaseURL == "" || c.PartnerAPIKey == "") {
+		return fmt.Errorf("PARTNER_API_ENABLED=true but PARTNER_API_BASE_URL/PARTNER_API_KEY is not set")
 	}
 	return nil
 }

@@ -32,3 +32,21 @@ type AlertRepository interface {
 type AlertBroadcaster interface {
 	Broadcast(a environment.EnvAlert)
 }
+
+// PartnerDeviceRepository is the persistence port for the Serial<->Location
+// mapping (admin-managed, see CONTEXT.md#environment). There is
+// deliberately no Delete beyond what Update(Active: false) already covers -
+// deactivating pauses polling without losing the mapping.
+type PartnerDeviceRepository interface {
+	Create(ctx context.Context, d environment.PartnerDevice) (environment.PartnerDevice, error)
+	Update(ctx context.Context, d environment.PartnerDevice) (environment.PartnerDevice, error)
+	FindBySerial(ctx context.Context, serial string) (environment.PartnerDevice, error)
+	List(ctx context.Context) ([]environment.PartnerDevice, error)
+}
+
+// PartnerDeviceBroadcaster pushes a freshly polled PartnerDeviceSnapshot to
+// any real-time subscribers (the SSE stream). Same shape/purpose as
+// AlertBroadcaster - transient, best-effort push, not persisted.
+type PartnerDeviceBroadcaster interface {
+	Broadcast(s environment.PartnerDeviceSnapshot)
+}
