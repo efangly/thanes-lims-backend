@@ -650,6 +650,38 @@ definitions:
     - location
     - serial
     type: object
+  internal_adapters_http_partnerdevice.DiscoverDeviceResponse:
+    properties:
+      firmware:
+        type: string
+      humidity_display:
+        type: number
+      name:
+        type: string
+      online:
+        type: boolean
+      send_time:
+        type: string
+      serial:
+        type: string
+      status:
+        type: boolean
+      temp_display:
+        type: number
+    type: object
+  internal_adapters_http_partnerdevice.DiscoverDevicesResponse:
+    properties:
+      devices:
+        items:
+          $ref: '#/definitions/internal_adapters_http_partnerdevice.DiscoverDeviceResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
   internal_adapters_http_partnerdevice.PartnerDeviceResponse:
     properties:
       active:
@@ -3196,6 +3228,53 @@ paths:
       security:
       - BearerAuth: []
       summary: ข้อมูลล่าสุดของ Partner Device (metadata + reading + alert)
+      tags:
+      - partner-devices
+  /partner-devices/discover:
+    get:
+      description: อ่านตรงจาก SMtrack (ไม่ persist) - ใช้ช่วยแอดมินหา Serial ของอุปกรณ์ใน
+        Ward ก่อนสร้างการผูก Serial<->Location
+      parameters:
+      - description: Ward ฝั่ง SMtrack
+        in: query
+        name: ward
+        required: true
+        type: string
+      - description: หน้า (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: จำนวนต่อหน้า (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_partnerdevice.DiscoverDevicesResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: ค้นหาอุปกรณ์ SMtrack ตาม Ward (ช่วยหา Serial ก่อนสร้าง Partner Device)
       tags:
       - partner-devices
   /partner-devices/stream:

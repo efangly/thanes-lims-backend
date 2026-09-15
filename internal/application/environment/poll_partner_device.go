@@ -74,11 +74,7 @@ func (uc *PollPartnerDeviceUseCase) Execute(ctx context.Context, d environment.P
 }
 
 func (uc *PollPartnerDeviceUseCase) fetch(ctx context.Context, d environment.PartnerDevice) (environment.PartnerDeviceSnapshot, error) {
-	meta, err := uc.client.FetchMetadata(ctx, d.Serial)
-	if err != nil {
-		return environment.PartnerDeviceSnapshot{}, err
-	}
-	reading, found, err := uc.client.FetchLatestReading(ctx, d.Serial)
+	meta, reading, found, err := uc.client.FetchSnapshot(ctx, d.Serial)
 	if err != nil {
 		return environment.PartnerDeviceSnapshot{}, err
 	}

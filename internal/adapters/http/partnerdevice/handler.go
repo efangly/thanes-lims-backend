@@ -17,18 +17,23 @@ type Handler struct {
 	list        *applicationenvironment.ListPartnerDevicesUseCase
 	get         *applicationenvironment.GetPartnerDeviceUseCase
 	getSnapshot *applicationenvironment.GetPartnerDeviceSnapshotUseCase
+	discover    *applicationenvironment.DiscoverPartnerDevicesByWardUseCase
 	hub         *SSEHub
 }
 
+// discover is nil when PARTNER_API_ENABLED=false - RegisterRoutes only
+// mounts /discover when it's non-nil, so Handler.Discover is never called
+// with a nil use case.
 func NewHandler(
 	create *applicationenvironment.CreatePartnerDeviceUseCase,
 	update *applicationenvironment.UpdatePartnerDeviceUseCase,
 	list *applicationenvironment.ListPartnerDevicesUseCase,
 	get *applicationenvironment.GetPartnerDeviceUseCase,
 	getSnapshot *applicationenvironment.GetPartnerDeviceSnapshotUseCase,
+	discover *applicationenvironment.DiscoverPartnerDevicesByWardUseCase,
 	hub *SSEHub,
 ) *Handler {
-	return &Handler{create: create, update: update, list: list, get: get, getSnapshot: getSnapshot, hub: hub}
+	return &Handler{create: create, update: update, list: list, get: get, getSnapshot: getSnapshot, discover: discover, hub: hub}
 }
 
 // Create godoc
@@ -167,6 +172,33 @@ func (h *Handler) GetSnapshot(c fiber.Ctx) error {
 		return err
 	}
 	return response.OK(c, toSnapshotResponse(snap))
+}
+
+// Discover godoc
+//
+//	@Summary		ค้นหาอุปกรณ์ SMtrack ตาม Ward (ช่วยหา Serial ก่อนสร้าง Partner Device)
+//	@Description	อ่านตรงจาก SMtrack (ไม่ persist) - ใช้ช่วยแอดมินหา Serial ของอุปกรณ์ใน Ward ก่อนสร้างการผูก Serial<->Location
+//	@Tags			partner-devices
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			ward	query		string	true	"Ward ฝั่ง SMtrack"
+//	@Param			page	query		int		false	"หน้า (default 1)"
+//	@Param			limit	query		int		false	"จำนวนต่อหน้า (default 20, max 100)"
+//	@Success		200		{object}	response.Envelope{data=DiscoverDevicesResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Router			/partner-devices/discover [get]
+func (h *Handler) Discover(c fiber.Ctx) error {
+	listing, err := h.discover.Execute(c.Context(), applicationenvironment.DiscoverPartnerDevicesByWardInput{
+		Ward:  c.Query("ward"),
+		Page:  fiber.Query(c, "page", 1),
+		Limit: fiber.Query(c, "limit", 20),
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, toDiscoverResponse(listing))
 }
 
 // Stream godoc

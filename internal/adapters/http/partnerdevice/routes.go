@@ -7,7 +7,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
+// discoverEnabled gates the /discover route: it has nothing to serve
+// without a live Partner API gRPC connection, so it's only mounted when
+// PARTNER_API_ENABLED=true (h.discover is non-nil in that case - see
+// NewHandler).
+func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService, discoverEnabled bool) {
 	authGuard := middleware.Auth(tokens)
 	requireView := middleware.RequirePermission(rbac.ModulePartnerDevice, rbac.ActionView)
 
@@ -21,9 +25,12 @@ func RegisterRoutes(r fiber.Router, h *Handler, tokens portuser.TokenService) {
 	pd := r.Group("/partner-devices", authGuard)
 	pd.Post("/", middleware.RequirePermission(rbac.ModulePartnerDevice, rbac.ActionCreate), h.Create)
 	pd.Get("/", requireView, h.List)
-	// Static "/stream" is registered before the "/:serial" wildcard so it
-	// can't be swallowed as a serial value.
+	// Static "/stream" and "/discover" are registered before the "/:serial"
+	// wildcard so neither can be swallowed as a serial value.
 	pd.Get("/stream", requireView, h.Stream)
+	if discoverEnabled {
+		pd.Get("/discover", requireView, h.Discover)
+	}
 	pd.Get("/:serial", requireView, h.Get)
 	pd.Patch("/:serial", middleware.RequirePermission(rbac.ModulePartnerDevice, rbac.ActionEdit), h.Update)
 	pd.Get("/:serial/snapshot", requireView, h.GetSnapshot)

@@ -29,7 +29,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
 	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
-	"github.com/efangly/thanes-lims-backend/internal/adapters/partnerapi"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/partnergrpc"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
@@ -82,7 +82,7 @@ type Jobs struct {
 // testresult, ... per the implementation plan). It also returns the
 // background jobs so main can run them on a schedule alongside the HTTP
 // server, since they're composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache) Jobs {
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache, partnerClient *partnergrpc.Client) Jobs {
 	// oracleMirror is non-nil only when the writable ADB connection is up; the
 	// wrap* helpers below then make every Postgres write also MERGE into the
 	// chatbot POC's Oracle mirror (best-effort - see internal/adapters/oracle/mirror).
@@ -275,22 +275,25 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	)
 	httpenvironment.RegisterRoutes(v1, environmentHandler, tokens)
 
-	// Partner Device (SMtrack third-party device data, docs/partner-api-guide.md,
-	// CONTEXT.md#environment, ADR 0011): CRUD + the cached-snapshot/SSE read
-	// endpoints are always mounted (they're Postgres/Redis-only, no external
-	// dependency), but PollPartnerDevicesJob - the only thing that actually
-	// calls out to the Partner API - is only built when PARTNER_API_ENABLED,
-	// matching the Oracle chatbot's optional-integration pattern.
+	// Partner Device (SMtrack third-party device data via gRPC,
+	// docs/partner-api-guide.md, CONTEXT.md#environment, ADR 0011, ADR 0012):
+	// CRUD + the cached-snapshot/SSE read endpoints are always mounted
+	// (they're Postgres/Redis-only, no external dependency), but
+	// PollPartnerDevicesJob and the /discover endpoint - the only things
+	// that actually call out to the Partner API - are only built when
+	// PARTNER_API_ENABLED (partnerClient is non-nil), matching the Oracle
+	// chatbot's optional-integration pattern.
 	partnerDeviceRepo := postgresenvironment.NewPartnerDeviceRepository(gdb)
 	partnerDeviceSSEHub := httppartnerdevice.NewSSEHub()
 	var pollPartnerDevicesJob *applicationenvironment.PollPartnerDevicesJob
+	var discoverPartnerDevices *applicationenvironment.DiscoverPartnerDevicesByWardUseCase
 	if cfg.PartnerAPIEnabled {
-		partnerAPIClient := partnerapi.New(cfg.PartnerAPIBaseURL, cfg.PartnerAPIKey)
 		pollPartnerDevice := applicationenvironment.NewPollPartnerDeviceUseCase(
-			partnerAPIClient, redisCache, evaluateThresholds, partnerDeviceSSEHub,
+			partnerClient, redisCache, evaluateThresholds, partnerDeviceSSEHub,
 			cfg.PartnerAPICacheTTL, cfg.PartnerAPIStaleMax,
 		)
 		pollPartnerDevicesJob = applicationenvironment.NewPollPartnerDevicesJob(partnerDeviceRepo, pollPartnerDevice)
+		discoverPartnerDevices = applicationenvironment.NewDiscoverPartnerDevicesByWardUseCase(partnerClient)
 	}
 	partnerDeviceHandler := httppartnerdevice.NewHandler(
 		applicationenvironment.NewCreatePartnerDeviceUseCase(partnerDeviceRepo, gaugeRepo),
@@ -298,9 +301,10 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 		applicationenvironment.NewListPartnerDevicesUseCase(partnerDeviceRepo),
 		applicationenvironment.NewGetPartnerDeviceUseCase(partnerDeviceRepo),
 		applicationenvironment.NewGetPartnerDeviceSnapshotUseCase(redisCache, cfg.PartnerAPICacheTTL),
+		discoverPartnerDevices,
 		partnerDeviceSSEHub,
 	)
-	httppartnerdevice.RegisterRoutes(v1, partnerDeviceHandler, tokens)
+	httppartnerdevice.RegisterRoutes(v1, partnerDeviceHandler, tokens, cfg.PartnerAPIEnabled)
 
 	notificationHandler := httpnotification.NewHandler(
 		applicationnotification.NewListNotificationsUseCase(notificationRepo),

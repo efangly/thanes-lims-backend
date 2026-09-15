@@ -80,15 +80,17 @@ type Config struct {
 
 	// Partner Device (SMtrack third-party device data, docs/partner-api-guide.md
 	// and CONTEXT.md#environment) - optional integration, off by default.
-	// PartnerAPIEnabled makes the dependency explicit, matching
-	// OracleEnabled: when true, PARTNER_API_BASE_URL and PARTNER_API_KEY are
+	// This is a gRPC service, not REST (see ADR 0012) - PartnerGRPCAddr is a
+	// bare host:port dial target (e.g. "siamatic.thddns.net:50051"), never a
+	// URL/scheme. PartnerAPIEnabled makes the dependency explicit, matching
+	// OracleEnabled: when true, PARTNER_GRPC_ADDR and PARTNER_API_KEY are
 	// required and a missing value fails at boot. PartnerAPIPollInterval
 	// drives PollPartnerDevicesJob; PartnerAPICacheTTL is the freshness
 	// window before a served snapshot is marked stale; PartnerAPIStaleMax is
 	// the hard cutoff (also the Redis TTL on the cached snapshot) after
 	// which a failed poll has nothing left to fall back to (see ADR 0011).
 	PartnerAPIEnabled      bool          `env:"PARTNER_API_ENABLED" envDefault:"false"`
-	PartnerAPIBaseURL      string        `env:"PARTNER_API_BASE_URL"`
+	PartnerGRPCAddr        string        `env:"PARTNER_GRPC_ADDR"`
 	PartnerAPIKey          string        `env:"PARTNER_API_KEY"`
 	PartnerAPIPollInterval time.Duration `env:"PARTNER_API_POLL_INTERVAL" envDefault:"30s"`
 	PartnerAPICacheTTL     time.Duration `env:"PARTNER_API_CACHE_TTL" envDefault:"45s"`
@@ -100,8 +102,8 @@ func (c *Config) validate() error {
 	if c.OracleEnabled && c.OracleDSN == "" {
 		return fmt.Errorf("ORACLE_ENABLED=true but ORACLE_DSN is not set")
 	}
-	if c.PartnerAPIEnabled && (c.PartnerAPIBaseURL == "" || c.PartnerAPIKey == "") {
-		return fmt.Errorf("PARTNER_API_ENABLED=true but PARTNER_API_BASE_URL/PARTNER_API_KEY is not set")
+	if c.PartnerAPIEnabled && (c.PartnerGRPCAddr == "" || c.PartnerAPIKey == "") {
+		return fmt.Errorf("PARTNER_API_ENABLED=true but PARTNER_GRPC_ADDR/PARTNER_API_KEY is not set")
 	}
 	return nil
 }

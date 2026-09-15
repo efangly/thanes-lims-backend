@@ -3520,6 +3520,82 @@
                 }
             }
         },
+        "/partner-devices/discover": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "อ่านตรงจาก SMtrack (ไม่ persist) - ใช้ช่วยแอดมินหา Serial ของอุปกรณ์ใน Ward ก่อนสร้างการผูก Serial\u003c-\u003eLocation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "partner-devices"
+                ],
+                "summary": "ค้นหาอุปกรณ์ SMtrack ตาม Ward (ช่วยหา Serial ก่อนสร้าง Partner Device)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ward ฝั่ง SMtrack",
+                        "name": "ward",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "หน้า (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "จำนวนต่อหน้า (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_partnerdevice.DiscoverDevicesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_efangly_thanes-lims-backend_internal_adapters_http_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/partner-devices/stream": {
             "get": {
                 "security": [
@@ -6591,6 +6667,55 @@
                 },
                 "serial": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_partnerdevice.DiscoverDeviceResponse": {
+            "type": "object",
+            "properties": {
+                "firmware": {
+                    "type": "string"
+                },
+                "humidity_display": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "online": {
+                    "type": "boolean"
+                },
+                "send_time": {
+                    "type": "string"
+                },
+                "serial": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "boolean"
+                },
+                "temp_display": {
+                    "type": "number"
+                }
+            }
+        },
+        "internal_adapters_http_partnerdevice.DiscoverDevicesResponse": {
+            "type": "object",
+            "properties": {
+                "devices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_adapters_http_partnerdevice.DiscoverDeviceResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

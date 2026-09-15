@@ -92,13 +92,13 @@ func (m *mockPartnerDeviceRepo) List(ctx context.Context) ([]environment.Partner
 
 type mockPartnerAPIClient struct{ mock.Mock }
 
-func (m *mockPartnerAPIClient) FetchMetadata(ctx context.Context, serial string) (portenvironment.PartnerDeviceMetadata, error) {
+func (m *mockPartnerAPIClient) FetchSnapshot(ctx context.Context, serial string) (portenvironment.PartnerDeviceMetadata, portenvironment.PartnerDeviceReading, bool, error) {
 	args := m.Called(ctx, serial)
-	return args.Get(0).(portenvironment.PartnerDeviceMetadata), args.Error(1)
+	return args.Get(0).(portenvironment.PartnerDeviceMetadata), args.Get(1).(portenvironment.PartnerDeviceReading), args.Bool(2), args.Error(3)
 }
-func (m *mockPartnerAPIClient) FetchLatestReading(ctx context.Context, serial string) (portenvironment.PartnerDeviceReading, bool, error) {
-	args := m.Called(ctx, serial)
-	return args.Get(0).(portenvironment.PartnerDeviceReading), args.Bool(1), args.Error(2)
+func (m *mockPartnerAPIClient) ListDevicesByWard(ctx context.Context, ward string, page, limit int) (portenvironment.PartnerDeviceListing, error) {
+	args := m.Called(ctx, ward, page, limit)
+	return args.Get(0).(portenvironment.PartnerDeviceListing), args.Error(1)
 }
 
 type mockPartnerDeviceBroadcaster struct{ mock.Mock }

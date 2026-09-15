@@ -26,10 +26,12 @@ func TestPollPartnerDevice_SuccessCachesAndBroadcasts(t *testing.T) {
 	device := environment.PartnerDevice{Serial: "SN-00042", Location: "ward-3", Active: true}
 
 	client := new(mockPartnerAPIClient)
-	client.On("FetchMetadata", mock.Anything, "SN-00042").
-		Return(portenvironment.PartnerDeviceMetadata{Serial: "SN-00042", Name: "Fridge", Status: true, Online: true}, nil)
-	client.On("FetchLatestReading", mock.Anything, "SN-00042").
-		Return(portenvironment.PartnerDeviceReading{Serial: "SN-00042", TempDisplay: 4.8, SendTime: time.Now()}, true, nil)
+	client.On("FetchSnapshot", mock.Anything, "SN-00042").
+		Return(
+			portenvironment.PartnerDeviceMetadata{Serial: "SN-00042", Name: "Fridge", Status: true, Online: true},
+			portenvironment.PartnerDeviceReading{Serial: "SN-00042", TempDisplay: 4.8, SendTime: time.Now()},
+			true, nil,
+		)
 
 	gauges := new(mockGaugeRepo)
 	gauges.On("FindByLocation", mock.Anything, "ward-3").Return(environment.Gauge{Location: "ward-3", RangeMin: 2, RangeMax: 8}, nil)
@@ -59,8 +61,8 @@ func TestPollPartnerDevice_RetryableFailureFallsBackToStaleCache(t *testing.T) {
 	device := environment.PartnerDevice{Serial: "SN-00042", Location: "ward-3", Active: true}
 
 	client := new(mockPartnerAPIClient)
-	client.On("FetchMetadata", mock.Anything, "SN-00042").
-		Return(portenvironment.PartnerDeviceMetadata{}, &mockRetryableError{msg: "rate limited", retryable: true})
+	client.On("FetchSnapshot", mock.Anything, "SN-00042").
+		Return(portenvironment.PartnerDeviceMetadata{}, portenvironment.PartnerDeviceReading{}, false, &mockRetryableError{msg: "rate limited", retryable: true})
 
 	cached := environment.PartnerDeviceSnapshot{Serial: "SN-00042", Location: "ward-3", Level: environment.LevelOK, FetchedAt: time.Now()}
 	var buf bytes.Buffer
@@ -87,8 +89,8 @@ func TestPollPartnerDevice_PermanentFailureReturnsError(t *testing.T) {
 	device := environment.PartnerDevice{Serial: "SN-00042", Location: "ward-3", Active: true}
 
 	client := new(mockPartnerAPIClient)
-	client.On("FetchMetadata", mock.Anything, "SN-00042").
-		Return(portenvironment.PartnerDeviceMetadata{}, &mockRetryableError{msg: "not found", retryable: false})
+	client.On("FetchSnapshot", mock.Anything, "SN-00042").
+		Return(portenvironment.PartnerDeviceMetadata{}, portenvironment.PartnerDeviceReading{}, false, &mockRetryableError{msg: "not found", retryable: false})
 
 	cache := new(mockCache)
 	evaluate := newEvaluateThresholds(new(mockGaugeRepo), new(mockAlertRepo))

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/domain/environment"
+	portenvironment "github.com/efangly/thanes-lims-backend/internal/ports/environment"
 )
 
 type CreatePartnerDeviceRequest struct {
@@ -60,4 +61,51 @@ func toSnapshotResponse(s environment.PartnerDeviceSnapshot) SnapshotResponse {
 		FetchedAt:       s.FetchedAt,
 		Stale:           s.Stale,
 	}
+}
+
+// DiscoverDeviceResponse is one SMtrack device as returned by browsing a
+// ward, before it's necessarily mapped to a Location here. The reading
+// fields are pointers (not zero values) so "no telemetry yet" is
+// distinguishable from a genuine 0.0 reading.
+type DiscoverDeviceResponse struct {
+	Serial          string     `json:"serial"`
+	Name            string     `json:"name"`
+	Status          bool       `json:"status"`
+	Firmware        string     `json:"firmware"`
+	Online          bool       `json:"online"`
+	TempDisplay     *float64   `json:"temp_display,omitempty"`
+	HumidityDisplay *float64   `json:"humidity_display,omitempty"`
+	SendTime        *time.Time `json:"send_time,omitempty"`
+}
+
+type DiscoverDevicesResponse struct {
+	Devices []DiscoverDeviceResponse `json:"devices"`
+	Total   int                      `json:"total"`
+	Page    int                      `json:"page"`
+	Limit   int                      `json:"limit"`
+}
+
+func toDiscoverResponse(l portenvironment.PartnerDeviceListing) DiscoverDevicesResponse {
+	out := DiscoverDevicesResponse{
+		Devices: make([]DiscoverDeviceResponse, len(l.Devices)),
+		Total:   l.Total,
+		Page:    l.Page,
+		Limit:   l.Limit,
+	}
+	for i, d := range l.Devices {
+		item := DiscoverDeviceResponse{
+			Serial:   d.Device.Serial,
+			Name:     d.Device.Name,
+			Status:   d.Device.Status,
+			Firmware: d.Device.Firmware,
+			Online:   d.Device.Online,
+		}
+		if d.HasLatest {
+			item.TempDisplay = &d.Latest.TempDisplay
+			item.HumidityDisplay = &d.Latest.HumidityDisplay
+			item.SendTime = &d.Latest.SendTime
+		}
+		out.Devices[i] = item
+	}
+	return out
 }

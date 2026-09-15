@@ -12,6 +12,7 @@ import (
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
 	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
+	"github.com/efangly/thanes-lims-backend/internal/adapters/partnergrpc"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	redisadapter "github.com/efangly/thanes-lims-backend/internal/adapters/redis"
@@ -101,6 +102,21 @@ func main() {
 	}
 	defer redisCache.Close()
 
+	// Partner Device (SMtrack third-party device data via gRPC, see
+	// docs/partner-api-guide.md and ADR 0012) - optional, off by default.
+	// PARTNER_API_ENABLED=true is an explicit operator opt-in already gated
+	// by config.validate(), so a dial failure here is fatal, matching
+	// objectstorage/redis above (not best-effort like the Oracle chatbot).
+	var partnerClient *partnergrpc.Client
+	if cfg.PartnerAPIEnabled {
+		pc, err := partnergrpc.New(cfg.PartnerGRPCAddr, cfg.PartnerAPIKey, 10*time.Second)
+		if err != nil {
+			log.Fatalf("partnergrpc: %v", err)
+		}
+		defer pc.Close()
+		partnerClient = pc
+	}
+
 	fiberCfg := fiber.Config{
 		ErrorHandler: middleware.ErrorMapper,
 	}
@@ -123,7 +139,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	jobs := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache)
+	jobs := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache, partnerClient)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {

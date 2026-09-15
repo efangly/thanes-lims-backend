@@ -97,8 +97,10 @@ _Avoid_: Sensor, device (a Gauge is the threshold config for a Location, not a p
 
 **Level** — `DeriveLevel(value, gauge)` classification of a reading against its Gauge's range: `ok` inside `RangeMin`–`RangeMax`, `warn` within a 10%-of-range-width margin outside it, `crit` further out.
 
-**Partner Device** — The mapping between one physical third-party sensor unit (identified by its `Serial`, per `docs/partner-api-guide.md`) and the Location whose Gauge its readings should be evaluated against: `Serial`, `Location` (FK to an existing Gauge's `Location` — never auto-created), `Active` (bool; deactivating pauses polling without deleting the mapping). A Partner Device's readings are never persisted as Sensor Readings — SMtrack (the partner) stays the system of record for the raw history; only the derived Env Alert is persisted here, same as any other Location.
+**Partner Device** — The mapping between one physical third-party sensor unit (identified by its `Serial`, per `docs/partner-api-guide.md`) and the Location whose Gauge its readings should be evaluated against: `Serial`, `Location` (FK to an existing Gauge's `Location` — never auto-created), `Active` (bool; deactivating pauses polling without deleting the mapping). A Partner Device's readings are never persisted as Sensor Readings — SMtrack (the partner) stays the system of record for the raw history; only the derived Env Alert is persisted here, same as any other Location. Talked to over gRPC, not REST (see ADR 0012).
 _Avoid_: Sensor, device (ambiguous with Gauge's implicit "device" reading) — always say "Partner Device" for the physical unit tracked by Serial
+
+**Ward** — SMtrack's own device grouping concept (e.g. an ICU or OPD), unrelated to this backend's `Location`. A Partner API key is scoped to a fixed list of wards; `GET /partner-devices/discover?ward=...` browses SMtrack's device inventory in one ward, purely to help an admin find a `Serial` before creating a Partner Device mapping — it is never stored here and never conflated with `Location`.
 
 ## Access Control
 
