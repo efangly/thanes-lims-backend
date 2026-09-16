@@ -10,8 +10,6 @@ import (
 
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
-	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
-	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
 	postgresenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/environment"
@@ -131,39 +129,7 @@ func main() {
 
 	seedNotifications(ctx, notificationRepo, idgen, users)
 
-	// Mirror the freshly seeded Sample/TestResult/Inventory/PurchaseOrder rows
-	// into the chatbot POC's Oracle ADB so it never lags the seed. Optional and
-	// non-fatal - the seed's job is Postgres.
-	seedOracleMirror(ctx, cfg, oraclemirror.Source{
-		Users:       userRepo,
-		Locations:   locationRepo,
-		Samples:     sampleRepo,
-		TestResults: testResultRepo,
-		Inventory:   inventoryRepo,
-		POs:         purchaseOrderRepo,
-	})
-
 	log.Println("seed: done")
-}
-
-func seedOracleMirror(ctx context.Context, cfg *config.Config, src oraclemirror.Source) {
-	if !cfg.OracleEnabled || cfg.OracleDSN == "" {
-		return
-	}
-	oradb, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
-	if err != nil {
-		log.Printf("seed: oracle mirror skipped: %v", err)
-		return
-	}
-	defer oradb.Close()
-
-	c, err := oraclemirror.Backfill(ctx, oraclemirror.New(oradb), src)
-	if err != nil {
-		log.Printf("seed: oracle mirror failed: %v", err)
-		return
-	}
-	log.Printf("seed: oracle mirror ok (inventory_items=%d purchase_orders=%d samples=%d test_results=%d)",
-		c.InventoryItems, c.PurchaseOrders, c.Samples, c.TestResults)
 }
 
 func seedUsers(ctx context.Context, users *postgresuser.Repository) map[string]domainuser.User {

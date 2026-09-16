@@ -1,6 +1,14 @@
 # Chatbot Integration Guide — สำหรับ Frontend
 
-POC ถาม-ตอบข้อมูลห้องแล็บด้วยภาษาธรรมชาติ (ดู `docs/chatbot-poc-plan.md`, `CONTEXT.md` หมวด "AI Chatbot (POC)")
+> **[เอกสารเก่า — ไม่ใช้แล้ว]** เอกสารนี้อธิบาย endpoint เดิม `POST /api/v1/chat` ของ Go
+> backend นี้ ซึ่ง**ถูกถอดออกแล้ว** (ย้าย chatbot ไป service แยกตามแผน
+> `ai-chatbot-groovy-spindle.md`) Frontend ควรอ้างอิงเอกสารของ service ใหม่แทน:
+> endpoint ปัจจุบันคือ **`POST /ai/chat`** ผ่าน API gateway เดียวกัน, implement อยู่ใน repo
+> แยก `lims-chatbot-service` (NestJS + LangGraph.js) ดู README/docs ของ repo นั้นสำหรับ
+> contract ล่าสุด (auth header เหมือนเดิม: `Authorization: Bearer <jwt>`) เนื้อหาด้านล่าง
+> เก็บไว้เพื่ออ้างอิงประวัติเท่านั้น
+
+POC ถาม-ตอบข้อมูลห้องแล็บด้วยภาษาธรรมชาติ (ดู `CONTEXT.md` หมวด "AI Chatbot" สำหรับสถานะปัจจุบัน)
 
 **สรุป**: มี endpoint เดียว `POST /api/v1/chat` รับคำถามภาษาไทย/อังกฤษ **แบบ single-turn**
 (ไม่มีบทสนทนาต่อเนื่อง — แต่ละครั้งเป็นอิสระ) backend เรียก Claude API สร้าง SQL รันกับ Oracle

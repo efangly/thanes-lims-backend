@@ -1,7 +1,7 @@
 // Package mcp adapts the existing Sample/TestResult/Inventory/PurchaseOrder
 // repositories to a read-only Model Context Protocol server, so an external
 // NestJS+LangGraph.js chatbot service can query Postgres (the real system of
-// record) instead of the old Oracle ADB mirror (docs/adr/00XX-mcp-server-transport.md).
+// record) instead of the old Oracle ADB mirror (docs/adr/0013-mcp-server-transport.md).
 package mcp
 
 import (

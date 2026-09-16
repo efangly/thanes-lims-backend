@@ -3,7 +3,7 @@
 // Sample/TestResult/Inventory/PurchaseOrder tools over MCP Streamable HTTP
 // for the external NestJS+LangGraph.js chatbot service to call. It reads
 // Postgres directly through the same repositories cmd/api wires up - see
-// docs/adr/00XX-mcp-server-transport.md and docs/mcp-server-tools.md.
+// docs/adr/0013-mcp-server-transport.md and docs/mcp-server-tools.md.
 //
 // This binary intentionally does not import anything from
 // internal/adapters/http/chatbot, internal/adapters/anthropic/chatbot, or

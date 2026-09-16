@@ -60,30 +60,12 @@ type Config struct {
 	AutoReorderEnabled  bool          `env:"AUTO_REORDER_ENABLED" envDefault:"true"`
 	AutoReorderInterval time.Duration `env:"AUTO_REORDER_INTERVAL" envDefault:"1h"`
 
-	// Oracle (Select AI chatbot POC) - separate ADB instance, not the Postgres system of record.
-	// OracleEnabled makes the dependency explicit: when true, ORACLE_DSN is
-	// required and a bad/missing value fails at boot rather than on the first
-	// chatbot request. When false the ADB integration is off regardless of
-	// the other ORACLE_* vars.
-	OracleEnabled  bool   `env:"ORACLE_ENABLED" envDefault:"false"`
-	OracleDSN      string `env:"ORACLE_DSN"`
-	OracleTNSAdmin string `env:"ORACLE_TNS_ADMIN"`
-
-	// Chatbot POC (see docs/chatbot-poc-plan.md, 2026-09-02 pivot): NL->SQL
-	// and narration run against the Claude API from Go, not Oracle Select AI.
-	// AnthropicAPIKey may be empty if the SDK resolves credentials another
-	// way (`ant auth login`). OracleChatbotDSN points at the read-only
-	// CHATBOT_RO user; empty falls back to OracleDSN.
-	AnthropicAPIKey  string `env:"ANTHROPIC_API_KEY"`
-	ChatbotModel     string `env:"CHATBOT_MODEL" envDefault:"claude-haiku-4-5-20251001"`
-	OracleChatbotDSN string `env:"ORACLE_CHATBOT_DSN"`
-
 	// Partner Device (SMtrack third-party device data, docs/partner-api-guide.md
 	// and CONTEXT.md#environment) - optional integration, off by default.
 	// This is a gRPC service, not REST (see ADR 0012) - PartnerGRPCAddr is a
 	// bare host:port dial target (e.g. "siamatic.thddns.net:50051"), never a
-	// URL/scheme. PartnerAPIEnabled makes the dependency explicit, matching
-	// OracleEnabled: when true, PARTNER_GRPC_ADDR and PARTNER_API_KEY are
+	// URL/scheme. PartnerAPIEnabled makes the dependency explicit: when
+	// true, PARTNER_GRPC_ADDR and PARTNER_API_KEY are
 	// required and a missing value fails at boot. PartnerAPIPollInterval
 	// drives PollPartnerDevicesJob; PartnerAPICacheTTL is the freshness
 	// window before a served snapshot is marked stale; PartnerAPIStaleMax is
@@ -96,22 +78,19 @@ type Config struct {
 	PartnerAPICacheTTL     time.Duration `env:"PARTNER_API_CACHE_TTL" envDefault:"45s"`
 	PartnerAPIStaleMax     time.Duration `env:"PARTNER_API_STALE_MAX" envDefault:"5m"`
 
-	// MCP server (cmd/mcp-server, docs/adr/00XX-mcp-server-transport.md) - a
+	// MCP server (cmd/mcp-server, docs/adr/0013-mcp-server-transport.md) - a
 	// separate binary/process from cmd/api that exposes Sample/TestResult/
 	// Inventory/PurchaseOrder as read-only MCP tools over Streamable HTTP,
-	// for the external NestJS+LangGraph.js chatbot service to call instead
-	// of the old Oracle ADB mirror. MCPServiceAPIKey is the static
-	// service-to-service credential (X-Service-Api-Key header) checked in
-	// addition to the forwarded end-user JWT - see internal/adapters/mcp.
+	// for the external NestJS+LangGraph.js chatbot service to call.
+	// MCPServiceAPIKey is the static service-to-service credential
+	// (X-Service-Api-Key header) checked in addition to the forwarded
+	// end-user JWT - see internal/adapters/mcp.
 	MCPServerPort    string `env:"MCP_SERVER_PORT" envDefault:"8090"`
 	MCPServiceAPIKey string `env:"MCP_SERVICE_API_KEY"`
 }
 
 // validate checks cross-field constraints that the env tags can't express.
 func (c *Config) validate() error {
-	if c.OracleEnabled && c.OracleDSN == "" {
-		return fmt.Errorf("ORACLE_ENABLED=true but ORACLE_DSN is not set")
-	}
 	if c.PartnerAPIEnabled && (c.PartnerGRPCAddr == "" || c.PartnerAPIKey == "") {
 		return fmt.Errorf("PARTNER_API_ENABLED=true but PARTNER_GRPC_ADDR/PARTNER_API_KEY is not set")
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"os"
 	"os/signal"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
-	oracledb "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/db"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/partnergrpc"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/postgres/db"
@@ -47,43 +45,6 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 
-	// Oracle ADB (chatbot POC) is optional - failure here must never crash
-	// the main API, which stays fully functional on Postgres alone. The
-	// chatbot connects as the read-only CHATBOT_RO user (ORACLE_CHATBOT_DSN),
-	// falling back to ORACLE_DSN when that is unset.
-	var chatbotDB *sql.DB
-	if cfg.OracleEnabled {
-		dsn := cfg.OracleChatbotDSN
-		if dsn == "" {
-			dsn = cfg.OracleDSN
-		}
-		oracleDB, err := oracledb.New(dsn, cfg.OracleTNSAdmin)
-		if err != nil {
-			log.Printf("oracle: connect failed, chatbot disabled: %v", err)
-		} else {
-			defer oracleDB.Close()
-			chatbotDB = oracleDB
-			log.Println("oracle: connected to ADB")
-		}
-	}
-
-	// Dual-write mirror to Oracle (docs/chatbot-poc-plan.md): keeps the ADB's
-	// samples/test_results/inventory_items/purchase_orders in sync with the
-	// Postgres system of record. Needs a WRITABLE connection (ORACLE_DSN, the
-	// CHATBOT_APP user) - distinct from the chatbot's read-only one above.
-	// Best-effort: a failed connection only disables mirroring.
-	var mirrorDB *sql.DB
-	if cfg.OracleEnabled && cfg.OracleDSN != "" {
-		md, err := oracledb.New(cfg.OracleDSN, cfg.OracleTNSAdmin)
-		if err != nil {
-			log.Printf("oracle: mirror connect failed, dual-write disabled: %v", err)
-		} else {
-			defer md.Close()
-			mirrorDB = md
-			log.Println("oracle: mirror (dual-write) connected")
-		}
-	}
-
 	// Composition root: wire adapters -> ports -> use cases -> handlers.
 	auditRepo := postgresaudit.New(gdb)
 	logAction := applicationaudit.NewLogActionUseCase(auditRepo)
@@ -106,7 +67,7 @@ func main() {
 	// docs/partner-api-guide.md and ADR 0012) - optional, off by default.
 	// PARTNER_API_ENABLED=true is an explicit operator opt-in already gated
 	// by config.validate(), so a dial failure here is fatal, matching
-	// objectstorage/redis above (not best-effort like the Oracle chatbot).
+	// objectstorage/redis above.
 	var partnerClient *partnergrpc.Client
 	if cfg.PartnerAPIEnabled {
 		pc, err := partnergrpc.New(cfg.PartnerGRPCAddr, cfg.PartnerAPIKey, 10*time.Second)
@@ -150,7 +111,7 @@ func main() {
 	app.Use(middleware.Audit(logAction))
 
 	v1 := app.Group("/api/v1")
-	jobs := registerRoutes(v1, cfg, gdb, chatbotDB, mirrorDB, fileStorage, redisCache, partnerClient)
+	jobs := registerRoutes(v1, cfg, gdb, fileStorage, redisCache, partnerClient)
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {

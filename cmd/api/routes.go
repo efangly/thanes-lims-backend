@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"database/sql"
 
 	_ "github.com/efangly/thanes-lims-backend/docs"
-	anthropicchatbot "github.com/efangly/thanes-lims-backend/internal/adapters/anthropic/chatbot"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedenvironment"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedlocation"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cachedrbac"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/cacheduser"
 	httpaudit "github.com/efangly/thanes-lims-backend/internal/adapters/http/audit"
-	httpchatbot "github.com/efangly/thanes-lims-backend/internal/adapters/http/chatbot"
 	httpdocument "github.com/efangly/thanes-lims-backend/internal/adapters/http/document"
 	httpenvironment "github.com/efangly/thanes-lims-backend/internal/adapters/http/environment"
 	httpequipment "github.com/efangly/thanes-lims-backend/internal/adapters/http/equipment"
@@ -27,8 +24,6 @@ import (
 	httpvendor "github.com/efangly/thanes-lims-backend/internal/adapters/http/vendor"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/jwt"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/objectstorage"
-	oraclechatbot "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/chatbot"
-	oraclemirror "github.com/efangly/thanes-lims-backend/internal/adapters/oracle/mirror"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/partnergrpc"
 	postgresaudit "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/audit"
 	postgresdocument "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/document"
@@ -45,7 +40,6 @@ import (
 	postgresuser "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/user"
 	postgresvendor "github.com/efangly/thanes-lims-backend/internal/adapters/postgres/vendor"
 	applicationaudit "github.com/efangly/thanes-lims-backend/internal/application/audit"
-	applicationchatbot "github.com/efangly/thanes-lims-backend/internal/application/chatbot"
 	applicationdocument "github.com/efangly/thanes-lims-backend/internal/application/document"
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	applicationequipment "github.com/efangly/thanes-lims-backend/internal/application/equipment"
@@ -82,14 +76,7 @@ type Jobs struct {
 // testresult, ... per the implementation plan). It also returns the
 // background jobs so main can run them on a schedule alongside the HTTP
 // server, since they're composed from the same repositories wired up here.
-func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB *sql.DB, mirrorDB *sql.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache, partnerClient *partnergrpc.Client) Jobs {
-	// oracleMirror is non-nil only when the writable ADB connection is up; the
-	// wrap* helpers below then make every Postgres write also MERGE into the
-	// chatbot POC's Oracle mirror (best-effort - see internal/adapters/oracle/mirror).
-	var oracleMirror *oraclemirror.Mirror
-	if mirrorDB != nil {
-		oracleMirror = oraclemirror.New(mirrorDB)
-	}
+func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, fileStorage *objectstorage.Adapter, redisCache cache.Cache, partnerClient *partnergrpc.Client) Jobs {
 	// /health also probes Redis: per ADR 0005 the refresh path is fail-closed,
 	// so a Redis outage logs every user out within one access-token TTL (~15m).
 	// External monitoring must be able to alert on that before users notice.
@@ -137,9 +124,6 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	var sampleRepo portssample.SampleRepository = postgressample.New(gdb)
 	cocRepo := postgressample.NewCoCRepository(gdb)
 	locationRepo := cachedlocation.NewCachedRepository(postgreslocation.New(gdb), redisCache)
-	if oracleMirror != nil {
-		sampleRepo = oraclemirror.WrapSample(sampleRepo, oracleMirror, userRepo, locationRepo)
-	}
 
 	sampleHandler := httpsample.NewHandler(
 		applicationsample.NewCreateSampleUseCase(sampleRepo, cocRepo, userRepo, idgen),
@@ -181,9 +165,6 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	notifier := applicationnotification.NewAsNotifier(applicationnotification.NewCreateNotificationUseCase(notificationRepo, idgen))
 
 	var testResultRepo portstestresult.Repository = postgrestestresult.New(gdb)
-	if oracleMirror != nil {
-		testResultRepo = oraclemirror.WrapTestResult(testResultRepo, oracleMirror)
-	}
 	testResultHandler := httptestresult.NewHandler(
 		applicationtestresult.NewCreateTestResultUseCase(testResultRepo, sampleRepo, idgen),
 		applicationtestresult.NewSubmitResultUseCase(testResultRepo),
@@ -212,11 +193,6 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	var inventoryRepo portsinventory.Repository = postgresinventory.New(gdb)
 	var inventoryLotRepo portsinventory.LotRepository = postgresinventory.NewLotRepository(gdb)
 	var purchaseOrderRepo portspurchaseorder.Repository = postgrespurchaseorder.New(gdb)
-	if oracleMirror != nil {
-		inventoryRepo = oraclemirror.WrapInventory(inventoryRepo, oracleMirror)
-		inventoryLotRepo = oraclemirror.WrapInventoryLot(inventoryLotRepo, oracleMirror, inventoryRepo)
-		purchaseOrderRepo = oraclemirror.WrapPO(purchaseOrderRepo, oracleMirror)
-	}
 
 	reorderUseCase := applicationpurchaseorder.NewCreateFromLowStockUseCase(purchaseOrderRepo, inventoryRepo, idgen)
 
@@ -282,7 +258,7 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 	// PollPartnerDevicesJob and the /discover + /:serial/timeseries
 	// endpoints - the only things that actually call out to the Partner
 	// API - are only built when PARTNER_API_ENABLED (partnerClient is
-	// non-nil), matching the Oracle chatbot's optional-integration pattern.
+	// non-nil).
 	partnerDeviceRepo := postgresenvironment.NewPartnerDeviceRepository(gdb)
 	partnerDeviceSSEHub := httppartnerdevice.NewSSEHub()
 	var pollPartnerDevicesJob *applicationenvironment.PollPartnerDevicesJob
@@ -315,15 +291,6 @@ func registerRoutes(v1 fiber.Router, cfg *config.Config, gdb *gorm.DB, chatbotDB
 		applicationnotification.NewMarkAllReadUseCase(notificationRepo),
 	)
 	httpnotification.RegisterRoutes(v1, notificationHandler, tokens)
-
-	// Chatbot POC (see docs/chatbot-poc-plan.md): only mounted when the
-	// optional Oracle ADB connection succeeded at startup.
-	if chatbotDB != nil {
-		runner := oraclechatbot.New(chatbotDB)
-		assistant := anthropicchatbot.New(cfg.AnthropicAPIKey, cfg.ChatbotModel, runner)
-		chatbotHandler := httpchatbot.NewHandler(applicationchatbot.NewAskUseCase(assistant))
-		httpchatbot.RegisterRoutes(v1, chatbotHandler, tokens)
-	}
 
 	auditRepo := postgresaudit.New(gdb)
 	auditHandler := httpaudit.NewHandler(
