@@ -95,6 +95,16 @@ type Config struct {
 	PartnerAPIPollInterval time.Duration `env:"PARTNER_API_POLL_INTERVAL" envDefault:"30s"`
 	PartnerAPICacheTTL     time.Duration `env:"PARTNER_API_CACHE_TTL" envDefault:"45s"`
 	PartnerAPIStaleMax     time.Duration `env:"PARTNER_API_STALE_MAX" envDefault:"5m"`
+
+	// MCP server (cmd/mcp-server, docs/adr/00XX-mcp-server-transport.md) - a
+	// separate binary/process from cmd/api that exposes Sample/TestResult/
+	// Inventory/PurchaseOrder as read-only MCP tools over Streamable HTTP,
+	// for the external NestJS+LangGraph.js chatbot service to call instead
+	// of the old Oracle ADB mirror. MCPServiceAPIKey is the static
+	// service-to-service credential (X-Service-Api-Key header) checked in
+	// addition to the forwarded end-user JWT - see internal/adapters/mcp.
+	MCPServerPort    string `env:"MCP_SERVER_PORT" envDefault:"8090"`
+	MCPServiceAPIKey string `env:"MCP_SERVICE_API_KEY"`
 }
 
 // validate checks cross-field constraints that the env tags can't express.

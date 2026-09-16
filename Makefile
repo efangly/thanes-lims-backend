@@ -23,6 +23,9 @@ run-api:
 run-seed:
 	go run ./cmd/seed
 
+run-mcp-server:
+	go run ./cmd/mcp-server
+
 test:
 	go test ./...
 
@@ -34,6 +37,7 @@ test-integration:
 build:
 	go build -o bin/api ./cmd/api
 	go build -o bin/seed ./cmd/seed
+	go build -o bin/mcp-server ./cmd/mcp-server
 
 # Regenerates docs/ from the @-annotations on handlers (internal/adapters/http/**/handler.go)
 # and cmd/api/main.go. Commit the regenerated docs/ - it's imported by cmd/api and must be
