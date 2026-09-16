@@ -29,6 +29,17 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
     -trimpath -ldflags="-s -w" \
     -o /out/api ./cmd/api
 
+# cmd/mcp-server doesn't touch Oracle/godror at all (Postgres-only, see
+# docs/adr/0013-mcp-server-transport.md), but it's built here too - same
+# image, same tag, same release - so k8s/mcp-server/00-deployment.yaml can
+# just override `command` on this image instead of needing a second
+# Dockerfile/build pipeline. CGO_ENABLED=1 isn't required for this binary,
+# but building in the same `go build` environment keeps this simple and
+# it doesn't hurt.
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -trimpath -ldflags="-s -w" \
+    -o /out/mcp-server ./cmd/mcp-server
+
 # ---- Runtime stage ----
 FROM oraclelinux:9-slim AS runtime
 
@@ -52,6 +63,7 @@ RUN groupadd -g 10001 app && useradd -u 10001 -g app -M -s /sbin/nologin app
 WORKDIR /app
 
 COPY --from=build /out/api ./api
+COPY --from=build /out/mcp-server ./mcp-server
 COPY migrations ./migrations
 
 # ADB wallet mount point (populated via k8s Secret volume "adb-wallet" in prod,
