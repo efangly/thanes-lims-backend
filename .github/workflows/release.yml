@@ -40,13 +40,17 @@ jobs:
 
       - name: Bump image tag
         run: |
+          # mcp-server/00-deployment.yaml runs cmd/mcp-server from this same
+          # image (see that file's comments) - it must always be bumped in
+          # lockstep with backend/03-deployment.yaml, not left to drift.
           sed -i "s|image: docker.io/${{ env.IMAGE_NAME }}:.*|image: docker.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}|" backend/03-deployment.yaml
+          sed -i "s|image: docker.io/${{ env.IMAGE_NAME }}:.*|image: docker.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}|" mcp-server/00-deployment.yaml
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add backend/03-deployment.yaml
+          git add backend/03-deployment.yaml mcp-server/00-deployment.yaml
           git commit -m "chore: bump backend image to ${{ github.ref_name }}" || exit 0
           git push
 
