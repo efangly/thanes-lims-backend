@@ -119,17 +119,20 @@ func requirePermission[In, Out any](h mcp.ToolHandlerFor[In, Out], domainPermiss
 		var zero Out
 		claims, ok := ClaimsFromContext(ctx)
 		if !ok || !HasPermission(claims, chatbotViewPermission) {
+			auditLog(req, "deny", claims, "missing "+chatbotViewPermission)
 			return &mcp.CallToolResult{
 				IsError: true,
 				Content: []mcp.Content{&mcp.TextContent{Text: "permission denied: missing " + chatbotViewPermission}},
 			}, zero, nil
 		}
 		if !HasPermission(claims, domainPermission) {
+			auditLog(req, "deny", claims, "missing "+domainPermission)
 			return &mcp.CallToolResult{
 				IsError: true,
 				Content: []mcp.Content{&mcp.TextContent{Text: "permission denied: missing " + domainPermission}},
 			}, zero, nil
 		}
+		auditLog(req, "allow", claims, "")
 		return h(ctx, req, in)
 	}
 }

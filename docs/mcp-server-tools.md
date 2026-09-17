@@ -162,3 +162,13 @@ None of these required changing any repository interface or its Postgres impleme
   MCP message is processed at all (transport-level, not a tool error).
 - **Unexpected repository error**: returned as a Go error from the handler, which the SDK
   surfaces as an MCP protocol-level error (distinct from `IsError` tool-level failures).
+
+## Audit logging
+
+Every tool-call attempt - allowed or denied - is logged to stdout (captured by `kubectl
+logs` in the deployed pod): `mcp: audit tool=<name> outcome=<allow|deny> user_id=<id>
+role=<role> reason="<reason>" args=<json>`. `reason` is empty on `allow`. This is
+deliberately a plain log line, not a write to the `audit_logs` table
+(`internal/domain/audit`) - that table is a compliance record of *mutations* (see ADR
+0003), and every MCP tool call is read-only; mixing "who changed what" with "who asked the
+AI assistant for what" would make that table (and its PDF export) misleading.
