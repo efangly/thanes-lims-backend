@@ -19,25 +19,30 @@ read-only, no new SQL.
   - `Authorization: Bearer <jwt>` — the **same access token** the end user already
     authenticated with against this backend's own `/api/v1/auth/login`. Forward it
     unmodified; do not mint a separate service-level token.
-- **RBAC**: every tool requires the caller's JWT `permissions` claim to include
-  `chatbot:view` (`rbac.ModuleChatbot`/`rbac.ActionView`). This is granted to every Role
-  today (Admin, Lab Manager, Scientist, QA, General) - see
-  `docs/chatbot-acceptance-checklist.md`. A caller without it gets a tool-level error
-  (`CallToolResult.IsError = true`), not a transport rejection - the missing/invalid
-  service key or JWT itself is what returns HTTP 401.
+- **RBAC**: every tool requires the caller's JWT `permissions` claim to include **both**
+  `chatbot:view` (`rbac.ModuleChatbot`/`rbac.ActionView` - "may use the AI assistant at
+  all") **and** the tool's own domain permission (see the table below) - a caller can only
+  pull a domain's data through the chatbot if their Role could already see that data
+  through the ordinary REST API. `chatbot:view` is granted to every Role today (Admin, Lab
+  Manager, Scientist, QA, General) - see `docs/chatbot-acceptance-checklist.md`; the
+  per-domain permissions follow each Role's existing grants (same `sample:view`/
+  `testresult:view`/`inventory:view`/`purchaseorder:view` keys the regular endpoints already
+  check - no new permission or migration was added for this). A caller missing either gets a
+  tool-level error (`CallToolResult.IsError = true`), not a transport rejection - the
+  missing/invalid service key or JWT itself is what returns HTTP 401.
 
 ## Tools
 
-| Tool | Input | Output | Scenario covered |
-|---|---|---|---|
-| `getSampleById` | `id: string` | one `Sample` object | Sample detail lookup |
-| `listSamplesByStatus` | `status: string`, `olderThanDays?: int` | `{ samples: Sample[], count }` | Acceptance checklist scenario 1 (pending > 7 days) |
-| `listSamplesByCustodianName` | `name: string` | `{ samples: Sample[], count }` | Acceptance checklist scenario 5 |
-| `searchTestResults` | `sampleId?: string`, `status?: string`, `flag?: string` | `{ results: TestResult[], count }` | Acceptance checklist scenario 2 (hi/lo flags) |
-| `listInventoryLowStock` | *(none)* | `{ items: InventoryItem[], count }` | Acceptance checklist scenario 3 |
-| `getInventoryItemById` | `id: string` | one `InventoryItem` (with `lots`) | Inventory detail lookup |
-| `listPurchaseOrders` | `status?: string` | `{ orders: PurchaseOrder[], count }` | Acceptance checklist scenario 4 |
-| `listPurchaseOrdersByItem` | `inventoryItemId: string` | `{ orders: PurchaseOrder[], count }` | Acceptance checklist scenario 6 |
+| Tool | Input | Output | Domain permission required (in addition to `chatbot:view`) | Scenario covered |
+|---|---|---|---|---|
+| `getSampleById` | `id: string` | one `Sample` object | `sample:view` | Sample detail lookup |
+| `listSamplesByStatus` | `status: string`, `olderThanDays?: int` | `{ samples: Sample[], count }` | `sample:view` | Acceptance checklist scenario 1 (pending > 7 days) |
+| `listSamplesByCustodianName` | `name: string` | `{ samples: Sample[], count }` | `sample:view` | Acceptance checklist scenario 5 |
+| `searchTestResults` | `sampleId?: string`, `status?: string`, `flag?: string` | `{ results: TestResult[], count }` | `testresult:view` | Acceptance checklist scenario 2 (hi/lo flags) |
+| `listInventoryLowStock` | *(none)* | `{ items: InventoryItem[], count }` | `inventory:view` | Acceptance checklist scenario 3 |
+| `getInventoryItemById` | `id: string` | one `InventoryItem` (with `lots`) | `inventory:view` | Inventory detail lookup |
+| `listPurchaseOrders` | `status?: string` | `{ orders: PurchaseOrder[], count }` | `purchaseorder:view` | Acceptance checklist scenario 4 |
+| `listPurchaseOrdersByItem` | `inventoryItemId: string` | `{ orders: PurchaseOrder[], count }` | `purchaseorder:view` | Acceptance checklist scenario 6 |
 
 All string enum fields below are spelled out because the LLM only ever sees these JSON
 schema descriptions, never the Go domain types.
@@ -150,6 +155,9 @@ None of these required changing any repository interface or its Postgres impleme
   `"sample \"X\" not found"` style message.
 - **Missing `chatbot:view` permission**: same shape, `"permission denied: missing
   chatbot:view"`.
+- **Missing the tool's domain permission** (e.g. `inventory:view` for `listInventoryLowStock`),
+  even with `chatbot:view` present: same shape, `"permission denied: missing
+  <module>:view"`.
 - **Missing/invalid `X-Service-Api-Key` or `Authorization` header**: HTTP 401, before any
   MCP message is processed at all (transport-level, not a tool error).
 - **Unexpected repository error**: returned as a Go error from the handler, which the SDK

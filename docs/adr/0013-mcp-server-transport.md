@@ -71,12 +71,19 @@ session/message layer - this is transport-level rejection, appropriate for missi
 *credentials*, matching how `internal/adapters/http/middleware.Auth` behaves for the main
 API.
 
-RBAC (`chatbot:view`, `rbac.ModuleChatbot`/`rbac.ActionView` - the same permission the old
-`/chat` endpoint required, granted to every Role per
-`docs/chatbot-acceptance-checklist.md`) is checked one level down, at MCP tool-dispatch
-time: `internal/adapters/mcp/server.go`'s generic `requirePermission[In, Out]` wraps every
+RBAC is checked one level down, at MCP tool-dispatch time:
+`internal/adapters/mcp/server.go`'s generic `requirePermission[In, Out]` wraps every
 `mcp.AddTool` registration once, checking the claims stashed in context by the auth
-middleware. A caller whose JWT lacks `chatbot:view` gets an MCP tool-level error
+middleware. Every tool requires **both** `chatbot:view` (`rbac.ModuleChatbot`/
+`rbac.ActionView` - the same permission the old `/chat` endpoint required, granted to every
+Role per `docs/chatbot-acceptance-checklist.md`, gating whether a Role may use the AI
+assistant at all) **and** its own domain permission (`sample:view`/`testresult:view`/
+`inventory:view`/`purchaseorder:view` - the same keys the ordinary REST endpoints already
+check, reused as-is; see `docs/mcp-server-tools.md`'s tool table for the exact mapping). This
+was added after the initial migration once it became clear "may use the chatbot" and "may
+see this domain's data" needed to be independently revocable - a Role without
+`inventory:view` on the regular API should not be able to read Inventory data through the
+chatbot either. A caller failing either check gets an MCP tool-level error
 (`CallToolResult{IsError: true}`) rather than a transport error, so the calling LLM can see
 why the call failed and react, per the SDK's guidance for handler-detected failures. This
 keeps the RBAC check in one place instead of duplicated inside each `tools/*.go` handler.

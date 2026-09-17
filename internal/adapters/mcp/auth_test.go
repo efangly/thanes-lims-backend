@@ -131,3 +131,47 @@ func TestNewServer_ToolRequiresPermission(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, result.IsError, "tool call without chatbot:view claims in context must be rejected")
 }
+
+// TestNewServer_ToolRequiresDomainPermission exercises the newer half of
+// requirePermission: chatbot:view alone is not enough, the caller must also
+// carry the tool's specific domain permission (e.g. "inventory:view" for
+// listInventoryLowStock). Goes through the real HTTP handler + AuthMiddleware
+// (not an in-memory transport) since that's what actually stashes JWT claims
+// into context - no Postgres/Docker needed, since limsmcp.Deps{} is never
+// touched: the permission check rejects before the handler body would reach
+// the (nil) repository.
+func TestNewServer_ToolRequiresDomainPermission(t *testing.T) {
+	server := limsmcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, limsmcp.Deps{})
+	tokens := newTestTokens()
+	handler := limsmcp.NewHTTPHandler(server, tokens, "secret-key")
+	httpSrv := httptest.NewServer(handler)
+	defer httpSrv.Close()
+
+	// chatbot:view present, inventory:view absent.
+	token, err := tokens.GenerateAccessToken(user.User{ID: 1, Name: "Sample Only", Role: user.RoleGeneral}, []string{"chatbot:view", "sample:view"})
+	assert.NoError(t, err)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "client", Version: "0.0.0"}, nil)
+	transport := &mcp.StreamableClientTransport{
+		Endpoint: httpSrv.URL,
+		HTTPClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			req.Header.Set("X-Service-Api-Key", "secret-key")
+			req.Header.Set("Authorization", "Bearer "+token)
+			return http.DefaultTransport.RoundTrip(req)
+		})},
+	}
+	session, err := client.Connect(context.Background(), transport, nil)
+	assert.NoError(t, err)
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "listInventoryLowStock",
+		Arguments: map[string]any{},
+	})
+	assert.NoError(t, err)
+	assert.True(t, result.IsError, "tool call with chatbot:view but without inventory:view must still be rejected")
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }

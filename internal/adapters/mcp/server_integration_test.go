@@ -140,7 +140,12 @@ func TestMCPServer_AuthAndToolsEndToEnd(t *testing.T) {
 	httpSrv := httptest.NewServer(handler)
 	defer httpSrv.Close()
 
-	token, err := tokens.GenerateAccessToken(domainuser.User{ID: custodianID, Name: "วิภา สายใจ", Role: domainuser.RoleAdmin}, []string{"chatbot:view"})
+	// Every domain permission the four happy-path tool calls below need, on
+	// top of chatbot:view - see server.go's requirePermission (now checks
+	// chatbot:view AND a per-tool domain permission, not chatbot:view alone).
+	token, err := tokens.GenerateAccessToken(domainuser.User{ID: custodianID, Name: "วิภา สายใจ", Role: domainuser.RoleAdmin}, []string{
+		"chatbot:view", "sample:view", "testresult:view", "inventory:view", "purchaseorder:view",
+	})
 	require.NoError(t, err)
 
 	connect := func(serviceKey, bearer string) (*mcp.ClientSession, error) {
@@ -209,5 +214,25 @@ func TestMCPServer_AuthAndToolsEndToEnd(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.True(t, result.IsError, "tool call without chatbot:view must be rejected")
+	})
+
+	t.Run("rejects tool call for JWT with chatbot:view but missing the tool's domain permission", func(t *testing.T) {
+		// Has chatbot:view (may use the AI assistant) but no inventory:view
+		// (may not see Inventory data through the ordinary REST API either)
+		// - per-tool RBAC must still deny this, not just check chatbot:view.
+		partialToken, err := tokens.GenerateAccessToken(domainuser.User{ID: custodianID, Name: "Sample Only", Role: domainuser.RoleGeneral}, []string{
+			"chatbot:view", "sample:view",
+		})
+		require.NoError(t, err)
+		session, err := connect("the-service-key", partialToken)
+		require.NoError(t, err)
+		defer session.Close()
+
+		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "listInventoryLowStock",
+			Arguments: map[string]any{},
+		})
+		require.NoError(t, err)
+		require.True(t, result.IsError, "tool call without the domain-specific permission must be rejected even with chatbot:view")
 	})
 }

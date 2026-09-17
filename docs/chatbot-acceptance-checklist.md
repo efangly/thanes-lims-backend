@@ -83,13 +83,19 @@ scenarios เดิมใน `docs/chatbot-poc-plan.md` (Phase 2, seed data บ�
 ตอบได้เฉพาะ 4 โดเมน: **Sample, TestResult, Inventory (+InventoryLot), PurchaseOrder**
 ไม่รวม: Equipment, Document, Environment, Notification, User, Audit — ขอบเขตนี้คงเดิมหลังย้ายไป NestJS (ไม่ได้ขยาย scope ในรอบ migration นี้)
 
-## RBAC decision (ตรงกับ Phase 2 ของแผน migration)
+## RBAC decision (ตรงกับ Phase 2 ของแผน migration; อัปเดตหลังเพิ่ม per-tool RBAC)
 
 Permission `chatbot:view` (migration `000037_add_chatbot_module_permissions`) ปัจจุบัน grant ให้
-**ทุก role** (Admin, Lab Manager, Scientist, QA, General) — **ตัดสินใจคงไว้แบบเดิมหลังย้าย**
-ไม่เพิ่ม fine-grained permission ต่อ domain (เช่น `sample:view` แยก) เพราะไม่มี requirement ใหม่
-ที่ต้องจำกัดสิทธิ์ละเอียดกว่านี้ — ทุก role ที่ login ได้ยังเรียก chatbot ได้เหมือนเดิม migration
-`000037` **ต้องไม่ถูก down-migrate** ตอน Phase 2 (ดูเหตุผลในแผน migration หลัก)
+**ทุก role** (Admin, Lab Manager, Scientist, QA, General) — ยังคงไว้แบบเดิม เป็น "สวิตช์เปิดใช้
+AI assistant" migration `000037` **ต้องไม่ถูก down-migrate** ตอน Phase 2 (ดูเหตุผลในแผน migration หลัก)
+
+**อัปเดต (2026-09-17)**: เพิ่ม **per-tool domain permission** ต่อยอดจาก `chatbot:view` แล้ว — แต่ละ
+tool ต้องมีทั้ง `chatbot:view` **และ** permission เฉพาะโดเมนของมัน (`sample:view`/
+`testresult:view`/`inventory:view`/`purchaseorder:view` — key เดียวกับที่ REST endpoint ปกติใช้
+อยู่แล้ว ไม่ต้องเพิ่ม migration ใหม่) ดูรายละเอียด mapping เต็มใน `docs/mcp-server-tools.md` และ
+เหตุผลใน `docs/adr/0013-mcp-server-transport.md` — เกิดจากการวางแผนกรณี MCP server อาจต้อง public
+ในอนาคต (ดู `/Users/tng-mac-01/.claude/plans/ai-chatbot-groovy-spindle.md` ส่วนท้าย) ที่พบว่า
+`chatbot:view` เพียงอย่างเดียวหยาบเกินไปสำหรับ authorize ต่อข้อมูลจริง
 
 ## Latency baseline
 
