@@ -3,6 +3,7 @@ package partnerdevice
 import (
 	"bufio"
 	"fmt"
+	"time"
 
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/middleware"
 	"github.com/efangly/thanes-lims-backend/internal/adapters/http/response"
@@ -10,6 +11,14 @@ import (
 	applicationenvironment "github.com/efangly/thanes-lims-backend/internal/application/environment"
 	"github.com/gofiber/fiber/v3"
 )
+
+// sseHeartbeatInterval keeps the /partner-devices/stream connection writing
+// bytes even when no device has a new snapshot yet. Without this, an idle
+// gap longer than PARTNER_API_POLL_INTERVAL (30s default) can exceed a
+// fronting proxy's default request/idle timeout (e.g. Envoy Gateway's ~15s
+// default when no BackendTrafficPolicy override is set) and the connection
+// gets killed before any real event arrives.
+const sseHeartbeatInterval = 15 * time.Second
 
 type Handler struct {
 	create      *applicationenvironment.CreatePartnerDeviceUseCase
@@ -243,12 +252,29 @@ func (h *Handler) Stream(c fiber.Ctx) error {
 	ch := h.hub.Subscribe()
 	return c.SendStreamWriter(func(w *bufio.Writer) {
 		defer h.hub.Unsubscribe(ch)
-		for payload := range ch {
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
-				return
-			}
-			if err := w.Flush(); err != nil {
-				return
+
+		heartbeat := time.NewTicker(sseHeartbeatInterval)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case payload, ok := <-ch:
+				if !ok {
+					return
+				}
+				if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+					return
+				}
+				if err := w.Flush(); err != nil {
+					return
+				}
+			case <-heartbeat.C:
+				if _, err := fmt.Fprint(w, ": keep-alive\n\n"); err != nil {
+					return
+				}
+				if err := w.Flush(); err != nil {
+					return
+				}
 			}
 		}
 	})
