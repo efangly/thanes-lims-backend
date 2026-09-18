@@ -247,7 +247,12 @@ func (h *Handler) Discover(c fiber.Ctx) error {
 func (h *Handler) Stream(c fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
-	c.Set("Connection", "keep-alive")
+	// No explicit Connection header: it's hop-by-hop and forbidden in HTTP/2
+	// (RFC 7540 §8.1.2.2). Setting it here risks a compliant proxy relaying
+	// it verbatim while re-framing this HTTP/1.1 chunked response into HTTP/2
+	// for the browser, which some proxies handle incorrectly for actively
+	// flushed streams - it caused net::ERR_HTTP2_PROTOCOL_ERROR via Envoy
+	// Gateway. fasthttp keeps the connection alive by default anyway.
 
 	ch := h.hub.Subscribe()
 	return c.SendStreamWriter(func(w *bufio.Writer) {
