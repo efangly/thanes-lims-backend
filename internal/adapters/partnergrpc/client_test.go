@@ -88,7 +88,7 @@ func TestFetchSnapshot_HappyPath(t *testing.T) {
 	srv := &fakeServer{snapshotResp: &pb.GetDeviceSnapshotResponse{
 		Device: &pb.DeviceMetadata{Serial: "SN-00042", Name: "Fridge", Status: true, Firmware: "1.2.3", Online: true},
 		Timeseries: []*pb.TelemetryPoint{
-			{SendTime: "2026-09-15T10:00:00Z", TempDisplay: 4.8, HumidityDisplay: 55.5},
+			{SendTime: "2026-09-15T10:00:00Z", TempDisplay: 4.8, HumidityDisplay: 55.5, Battery: 87, Plug: true, Door1: true, ExtMemory: true},
 			{SendTime: "2026-09-15T09:00:00Z", TempDisplay: 4.5, HumidityDisplay: 54.0},
 		},
 	}}
@@ -102,6 +102,11 @@ func TestFetchSnapshot_HappyPath(t *testing.T) {
 	assert.Equal(t, 4.8, reading.TempDisplay)
 	assert.Equal(t, 55.5, reading.HumidityDisplay)
 	assert.Equal(t, "SN-00042", reading.Serial)
+	assert.Equal(t, 87, reading.Battery)
+	assert.True(t, reading.Plug)
+	assert.True(t, reading.Door1)
+	assert.False(t, reading.Door2)
+	assert.True(t, reading.ExtMemory)
 	assert.Equal(t, "test-key", srv.gotAPIKey)
 }
 

@@ -18,7 +18,19 @@ type PartnerDeviceSnapshot struct {
 	HumidityDisplay float64
 	SendTime        time.Time
 	Level           Level
-	FetchedAt       time.Time
+	// Battery is the device's battery level in percent (0-100).
+	Battery int
+	// Plug is true when the device is on external/mains power.
+	Plug bool
+	// Door1/Door2/Door3 are true when that door is open - most devices
+	// only use Door1 (single-door cabinet); the others stay false.
+	Door1 bool
+	Door2 bool
+	Door3 bool
+	// ExtMemory is true when the device's SD/external memory card is
+	// present.
+	ExtMemory bool
+	FetchedAt time.Time
 	// Stale is true when this snapshot was served from cache because a
 	// live poll of the Partner API failed (e.g. 429/timeout) - see ADR
 	// 0011 and the stale-cache-fallback decision.

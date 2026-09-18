@@ -24,6 +24,18 @@ type PartnerDeviceReading struct {
 	SendTime        time.Time
 	TempDisplay     float64
 	HumidityDisplay float64
+	// Battery is the device's battery level in percent (0-100).
+	Battery int
+	// Plug is true when the device is on external/mains power.
+	Plug bool
+	// Door1/Door2/Door3 are true when that door is open - most devices
+	// only use Door1 (single-door cabinet); the others stay false.
+	Door1 bool
+	Door2 bool
+	Door3 bool
+	// ExtMemory is true when the device's SD/external memory card is
+	// present.
+	ExtMemory bool
 }
 
 // PartnerDeviceWithReading pairs a device (as returned by ListDevicesByWard)

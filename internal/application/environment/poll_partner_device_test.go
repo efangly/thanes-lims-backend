@@ -29,7 +29,7 @@ func TestPollPartnerDevice_SuccessCachesAndBroadcasts(t *testing.T) {
 	client.On("FetchSnapshot", mock.Anything, "SN-00042").
 		Return(
 			portenvironment.PartnerDeviceMetadata{Serial: "SN-00042", Name: "Fridge", Status: true, Online: true},
-			portenvironment.PartnerDeviceReading{Serial: "SN-00042", TempDisplay: 4.8, SendTime: time.Now()},
+			portenvironment.PartnerDeviceReading{Serial: "SN-00042", TempDisplay: 4.8, SendTime: time.Now(), Battery: 91, Plug: true, Door1: true, ExtMemory: true},
 			true, nil,
 		)
 
@@ -44,7 +44,8 @@ func TestPollPartnerDevice_SuccessCachesAndBroadcasts(t *testing.T) {
 
 	broadcaster := new(mockPartnerDeviceBroadcaster)
 	broadcaster.On("Broadcast", mock.MatchedBy(func(s environment.PartnerDeviceSnapshot) bool {
-		return s.Serial == "SN-00042" && !s.Stale && s.Level == environment.LevelOK
+		return s.Serial == "SN-00042" && !s.Stale && s.Level == environment.LevelOK &&
+			s.Battery == 91 && s.Plug && s.Door1 && !s.Door2 && s.ExtMemory
 	})).Return()
 
 	uc := applicationenvironment.NewPollPartnerDeviceUseCase(client, cache, evaluate, broadcaster, 45*time.Second, 5*time.Minute)

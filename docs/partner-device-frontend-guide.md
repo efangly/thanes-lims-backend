@@ -56,10 +56,18 @@
   "humidity_display": 61.61,
   "send_time": "2026-09-15T08:50:00Z",  // เวลาที่ SMtrack ส่งค่านี้มา (ไม่ใช่เวลาที่ poll)
   "level": "crit",                      // "ok" | "warn" | "crit" ตาม threshold ของ Gauge
+  "battery": 87,                        // % (0-100)
+  "plug": true,                         // เสียบไฟ AC อยู่หรือไม่
+  "door1": true,                        // ประตูเปิดอยู่หรือไม่ - อุปกรณ์ส่วนใหญ่มีแค่ door1
+  "door2": false,
+  "door3": false,
+  "ext_memory": true,                   // มีการ์ด SD/external memory เสียบอยู่หรือไม่
   "fetched_at": "2026-09-15T16:19:16+07:00", // เวลาที่ backend poll สำเร็จล่าสุด
   "stale": false                        // true = poll ล้มเหลวชั่วคราว, ค่านี้เป็นของเก่าที่ fallback มาโชว์
 }
 ```
+
+**เพิ่มเมื่อ 2026-09-18**: `battery`/`plug`/`door1`/`door2`/`door3`/`ext_memory` มาจาก field เดียวกันใน SMtrack's `TelemetryPoint` ที่ `temp_display`/`humidity_display` มาจาก (ดู `proto/partner/partner.proto`) — เดิม backend ทิ้งไปตั้งแต่ `toReading()` ไม่เคยส่งต่อมาก่อน ตอนนี้ forward มาให้ครบแล้วทั้งที่ `/snapshot`, SSE stream, และ `ListDevicesByWard`/`discover` (ผ่าน field เดียวกันใน `PartnerDeviceReading`) เหมือน `temp_display` ทุกประการ — `found == false` (ยังไม่เคย poll สำเร็จ) ทำให้ field พวกนี้เป็นค่า zero (`battery: 0`, `plug: false`, ...) เหมือนที่ `temp_display`/`humidity_display` เป็น `0`/`false` ในสถานการณ์เดียวกัน ไม่ใช่ nullable แบบ `DiscoverDevicesResponse`
 
 ```jsonc
 // TimeseriesResponse — ย้อนหลังสูงสุด 1 ชั่วโมง เรียงใหม่→เก่า (สำหรับทำกราฟ)

@@ -126,8 +126,9 @@ func toMetadata(d *pb.DeviceMetadata) portenvironment.PartnerDeviceMetadata {
 	}
 }
 
-// toReading maps a TelemetryPoint's send_time (ISO 8601 UTC) and the two
-// display fields the port actually consumes. A send_time parse failure is a
+// toReading maps a TelemetryPoint's send_time (ISO 8601 UTC) and the
+// display/status fields the port actually consumes (temp/humidity display,
+// battery, plug, door1-3, ext_memory). A send_time parse failure is a
 // permanent adapter/protocol bug, not a network condition, so it is returned
 // as an error rather than silently zeroing the time.
 func toReading(serial string, p *pb.TelemetryPoint) (portenvironment.PartnerDeviceReading, error) {
@@ -140,6 +141,12 @@ func toReading(serial string, p *pb.TelemetryPoint) (portenvironment.PartnerDevi
 		SendTime:        sendTime,
 		TempDisplay:     p.GetTempDisplay(),
 		HumidityDisplay: p.GetHumidityDisplay(),
+		Battery:         int(p.GetBattery()),
+		Plug:            p.GetPlug(),
+		Door1:           p.GetDoor1(),
+		Door2:           p.GetDoor2(),
+		Door3:           p.GetDoor3(),
+		ExtMemory:       p.GetExtMemory(),
 	}, nil
 }
 

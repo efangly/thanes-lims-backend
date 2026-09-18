@@ -42,8 +42,19 @@ type SnapshotResponse struct {
 	HumidityDisplay float64   `json:"humidity_display"`
 	SendTime        time.Time `json:"send_time"`
 	Level           string    `json:"level"`
-	FetchedAt       time.Time `json:"fetched_at"`
-	Stale           bool      `json:"stale"`
+	// Battery is percent (0-100). Plug/Door1/Door2/Door3/ExtMemory are the
+	// device's latest boolean status fields - most devices only use Door1
+	// (single-door cabinet), the rest stay false. All are zero-valued
+	// alongside TempDisplay/HumidityDisplay when the device has no reading
+	// yet.
+	Battery   int       `json:"battery"`
+	Plug      bool      `json:"plug"`
+	Door1     bool      `json:"door1"`
+	Door2     bool      `json:"door2"`
+	Door3     bool      `json:"door3"`
+	ExtMemory bool      `json:"ext_memory"`
+	FetchedAt time.Time `json:"fetched_at"`
+	Stale     bool      `json:"stale"`
 }
 
 func toSnapshotResponse(s environment.PartnerDeviceSnapshot) SnapshotResponse {
@@ -58,6 +69,12 @@ func toSnapshotResponse(s environment.PartnerDeviceSnapshot) SnapshotResponse {
 		HumidityDisplay: s.HumidityDisplay,
 		SendTime:        s.SendTime,
 		Level:           string(s.Level),
+		Battery:         s.Battery,
+		Plug:            s.Plug,
+		Door1:           s.Door1,
+		Door2:           s.Door2,
+		Door3:           s.Door3,
+		ExtMemory:       s.ExtMemory,
 		FetchedAt:       s.FetchedAt,
 		Stale:           s.Stale,
 	}

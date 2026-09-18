@@ -89,12 +89,18 @@ func (uc *PollPartnerDeviceUseCase) fetch(ctx context.Context, d environment.Par
 		FetchedAt: time.Now(),
 	}
 	// found == false (no reading in the last 24h) leaves TempDisplay/
-	// HumidityDisplay/SendTime/Level at their zero values - there is
-	// nothing to evaluate an alert against yet.
+	// HumidityDisplay/SendTime/Level/Battery/Plug/Door*/ExtMemory at their
+	// zero values - there is nothing to evaluate an alert against yet.
 	if found {
 		snap.TempDisplay = reading.TempDisplay
 		snap.HumidityDisplay = reading.HumidityDisplay
 		snap.SendTime = reading.SendTime
+		snap.Battery = reading.Battery
+		snap.Plug = reading.Plug
+		snap.Door1 = reading.Door1
+		snap.Door2 = reading.Door2
+		snap.Door3 = reading.Door3
+		snap.ExtMemory = reading.ExtMemory
 
 		alert, err := uc.evaluate.Execute(ctx, d.Location, reading.TempDisplay)
 		if err != nil {
